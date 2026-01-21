@@ -120,10 +120,14 @@ const app = new Elysia()
             timeZone: t.String(),
         })
     })
-    .listen(3000);
 
-console.log(
-    `🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`
-);
+
+// Only listen if run directly (not imported)
+if (import.meta.main) {
+    app.listen(3000);
+    console.log(
+        `🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`
+    );
+}
 
 export default app;

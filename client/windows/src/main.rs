@@ -58,13 +58,20 @@ unsafe extern "system" fn hook_proc(
 #[tokio::main]
 async fn main() {
     // 1. Load Configuration
-    let config_path = "config.json";
-    let config = match fs::read_to_string(config_path) {
+    // Resolve config path relative to the executable location
+    let exe_path = std::env::current_exe().expect("Failed to get current executable path");
+    let exe_dir = exe_path.parent().expect("Failed to get executable directory");
+    let config_path = exe_dir.join("config.json");
+
+    println!("Loading config from: {:?}", config_path);
+
+    let config = match fs::read_to_string(&config_path) {
         Ok(content) => serde_json::from_str(&content).unwrap_or_else(|_| Config::default()),
         Err(_) => {
             let default_config = Config::default();
             let json = serde_json::to_string_pretty(&default_config).unwrap();
-            let _ = fs::write(config_path, json);
+            let _ = fs::write(&config_path, json);
+            println!("Created default config file at: {:?}", config_path);
             default_config
         }
     };
