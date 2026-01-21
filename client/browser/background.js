@@ -70,7 +70,9 @@ async function logSession() {
             timeZone
         };
 
-        // Fire and forget
+        const targetTabId = currentTabId; // Capture for the async call
+
+        // Fire and forget catch
         fetch(serverUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

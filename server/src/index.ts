@@ -1,9 +1,12 @@
 import { Elysia, t } from 'elysia';
 import { db } from './db';
 import { devices, dailyActivities, appUsages, usageTimelines, apps } from './db/schema';
-import { sql, eq, and } from 'drizzle-orm';
+import { sql, eq, and, gte, lte, sum, desc } from 'drizzle-orm';
+
+import { cors } from '@elysiajs/cors';
 
 const app = new Elysia()
+    .use(cors())
     .get('/', () => 'Time Tracker API')
     .post('/api/log-session', async ({ body }) => {
         const { deviceId, devicePlatform, appName, startTime, endTime, timeZone } = body;
@@ -121,6 +124,47 @@ const app = new Elysia()
             startTime: t.String({ format: 'date-time' }), // ISO 8601 validation
             endTime: t.String({ format: 'date-time' }),
             timeZone: t.String(),
+        })
+    })
+    .get('/api/stats', async ({ query }) => {
+        const { from, to, timeZone } = query;
+
+        // Default to today if not specified
+        const now = new Date();
+        const fromDate = from ? new Date(from) : now;
+        const toDate = to ? new Date(to) : now;
+
+        // Format dates as YYYY-MM-DD for comparison with dailyActivities.date column
+        const fromStr = fromDate.toLocaleDateString('en-CA', { timeZone: timeZone || 'UTC' });
+        const toStr = toDate.toLocaleDateString('en-CA', { timeZone: timeZone || 'UTC' });
+
+        console.log(`[Stats] Querying from ${fromStr} to ${toStr}`);
+
+        const result = await db.select({
+            appName: apps.name,
+            totalTimeMs: sum(appUsages.totalTimeMs).mapWith(Number), // sum returns string in pg
+        })
+            .from(appUsages)
+            .innerJoin(apps, eq(appUsages.appId, apps.id))
+            .innerJoin(dailyActivities, eq(appUsages.dailyActivityId, dailyActivities.id))
+            .where(
+                and(
+                    gte(dailyActivities.date, fromStr),
+                    lte(dailyActivities.date, toStr)
+                )
+            )
+            .groupBy(apps.name)
+            .orderBy(desc(sum(appUsages.totalTimeMs)));
+
+        return {
+            success: true,
+            data: result
+        };
+    }, {
+        query: t.Object({
+            from: t.Optional(t.String()),
+            to: t.Optional(t.String()),
+            timeZone: t.Optional(t.String())
         })
     })
 

@@ -2,7 +2,7 @@
     "manifest_version": 3,
     "name": "Used Time Tracker",
     "version": "1.0",
-    "description": "Tracks active tab time and syncs to local server.",
+    "description": "Track active tab usage and sync data to your private server. Privacy-focused and open-source.",
     "permissions": [
         "tabs",
         "storage",
@@ -10,7 +10,7 @@
     ],
     "host_permissions": [
         "http://localhost:3000/*",
-        "https://*/*"
+        "https://used-time-tracker.vercel.app/*"
     ],
     "options_ui": {
         "page": "options.html",
