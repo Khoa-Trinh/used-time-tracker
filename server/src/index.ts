@@ -6,7 +6,9 @@ import { sql, eq, and, gte, lte, sum, desc } from 'drizzle-orm';
 import { cors } from '@elysiajs/cors';
 
 const app = new Elysia()
-    .use(cors())
+    .use(cors({
+        origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : true // 'true' allows all in Elysia CORS
+    }))
     .get('/', () => 'Time Tracker API')
     .post('/api/log-session', async ({ body }) => {
         const { deviceId, devicePlatform, appName, startTime, endTime, timeZone } = body;
