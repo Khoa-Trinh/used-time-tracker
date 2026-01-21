@@ -33,6 +33,6 @@ export const appUsages = pgTable('app_usages', {
 export const usageTimelines = pgTable('usage_timelines', {
     id: uuid('id').defaultRandom().primaryKey(),
     appUsageId: uuid('app_usage_id').references(() => appUsages.id).notNull(),
-    startTime: timestamp('start_time').notNull(),
-    endTime: timestamp('end_time').notNull(),
+    startTime: timestamp('start_time', { withTimezone: true }).notNull(),
+    endTime: timestamp('end_time', { withTimezone: true }).notNull(),
 });
