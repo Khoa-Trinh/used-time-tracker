@@ -26,7 +26,10 @@ const app = new Elysia()
             return { success: false, error: 'Invalid timeZone' };
         }
 
-        console.log('[LOG] Session:', body);
+        console.log(`[LOG] Session: ${appName} (${devicePlatform})`);
+        console.log(`      Received: ${startTime}`);
+        console.log(`      Parsed (UTC):   ${start.toISOString()}`);
+        console.log(`      Parsed (Local): ${start.toLocaleString('en-US', { timeZone })}`);
 
         return await db.transaction(async (tx) => {
             // 1. Upsert Device
