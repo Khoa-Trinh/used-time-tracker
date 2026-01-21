@@ -1,0 +1,129 @@
+import { Elysia, t } from 'elysia';
+import { db } from './db';
+import { devices, dailyActivities, appUsages, usageTimelines, apps } from './db/schema';
+import { sql, eq, and } from 'drizzle-orm';
+
+const app = new Elysia()
+    .get('/', () => 'Time Tracker API')
+    .post('/api/log-session', async ({ body }) => {
+        const { deviceId, devicePlatform, appName, startTime, endTime, timeZone } = body;
+        const start = new Date(startTime);
+        const end = new Date(endTime);
+        const durationMs = end.getTime() - start.getTime();
+
+        // Semantic Validation (logic that schema can't easily capture)
+        if (start >= end) {
+            return { success: false, error: 'startTime must be before endTime' };
+        }
+
+        if (durationMs > 24 * 60 * 60 * 1000) {
+            return { success: false, error: 'Duration cannot exceed 24 hours' };
+        }
+
+        try {
+            Intl.DateTimeFormat(undefined, { timeZone });
+        } catch (e) {
+            return { success: false, error: 'Invalid timeZone' };
+        }
+
+        console.log('[LOG] Session:', body);
+
+        return await db.transaction(async (tx) => {
+            // 1. Upsert Device
+            let [device] = await tx.select().from(devices).where(eq(devices.externalDeviceId, deviceId));
+            if (!device) {
+                [device] = await tx.insert(devices).values({
+                    externalDeviceId: deviceId,
+                    platform: devicePlatform, // Type is validated by Elysia
+                }).returning();
+            }
+
+            if (!device) {
+                throw new Error('Failed to ensure device');
+            }
+
+            // 2. Upsert Daily Activity
+            const dateStr = start.toLocaleDateString('en-CA', { timeZone });
+
+            let [daily] = await tx.select().from(dailyActivities).where(
+                and(eq(dailyActivities.deviceId, device.id), eq(dailyActivities.date, dateStr))
+            );
+
+            if (!daily) {
+                [daily] = await tx.insert(dailyActivities).values({
+                    deviceId: device.id,
+                    date: dateStr,
+                }).returning();
+            }
+
+            if (!daily) {
+                throw new Error('Failed to ensure daily activity');
+            }
+
+            // 3. Upsert App (New Normalization)
+            let [app] = await tx.select().from(apps).where(eq(apps.name, appName));
+
+            if (!app) {
+                [app] = await tx.insert(apps).values({ name: appName }).returning();
+            }
+
+            if (!app) {
+                throw new Error('Failed to ensure app');
+            }
+
+            // 4. Upsert App Usage
+            let [usage] = await tx.select().from(appUsages).where(
+                and(eq(appUsages.dailyActivityId, daily.id), eq(appUsages.appId, app.id))
+            );
+
+            if (!usage) {
+                [usage] = await tx.insert(appUsages).values({
+                    dailyActivityId: daily.id,
+                    appId: app.id,
+                    totalTimeMs: 0,
+                }).returning();
+            }
+
+            if (!usage) {
+                throw new Error('Failed to ensure app usage');
+            }
+
+            // 5. Insert Timeline
+            await tx.insert(usageTimelines).values({
+                appUsageId: usage.id,
+                startTime: start,
+                endTime: end,
+            });
+
+            // 6. Update Total Time
+            await tx.update(appUsages)
+                .set({ totalTimeMs: sql`${appUsages.totalTimeMs} + ${durationMs}` })
+                .where(eq(appUsages.id, usage.id));
+
+            return { success: true, usageId: usage.id, durationAdded: durationMs };
+        });
+
+    }, {
+        body: t.Object({
+            deviceId: t.String(),
+            devicePlatform: t.Union([
+                t.Literal('web'),
+                t.Literal('ios'),
+                t.Literal('android'),
+                t.Literal('macos'),
+                t.Literal('windows'),
+                t.Literal('linux')
+            ]),
+            appName: t.String(),
+            startTime: t.String({ format: 'date-time' }), // ISO 8601 validation
+            endTime: t.String({ format: 'date-time' }),
+            timeZone: t.String(),
+        })
+    })
+    .listen(3000);
+
+console.log(
+    `🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`
+);
+
+export default app;

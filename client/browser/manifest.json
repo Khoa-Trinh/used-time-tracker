@@ -1,0 +1,22 @@
+{
+    "manifest_version": 3,
+    "name": "Used Time Tracker",
+    "version": "1.0",
+    "description": "Tracks active tab time and syncs to local server.",
+    "permissions": [
+        "tabs",
+        "storage",
+        "webNavigation"
+    ],
+    "host_permissions": [
+        "http://localhost:3000/*",
+        "https://*/*"
+    ],
+    "options_ui": {
+        "page": "options.html",
+        "open_in_tab": false
+    },
+    "background": {
+        "service_worker": "background.js"
+    }
+}
