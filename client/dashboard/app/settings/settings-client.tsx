@@ -30,8 +30,7 @@ export default function SettingsClient() {
 
     const fetchKeys = async () => {
         try {
-            const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3000';
-            const res = await fetch(`${serverUrl}/api/keys`, { credentials: 'include' });
+            const res = await fetch(`/api/keys`, { credentials: 'include' });
 
             if (res.status === 401) {
                 await authClient.signOut();
@@ -52,8 +51,7 @@ export default function SettingsClient() {
         e.preventDefault();
         setCreating(true);
         try {
-            const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3000';
-            const res = await fetch(`${serverUrl}/api/keys`, {
+            const res = await fetch(`/api/keys`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ label: newLabel || 'My Device' }),
@@ -80,8 +78,7 @@ export default function SettingsClient() {
 
     const deleteKey = async (id: string) => {
         if (!confirm('Are you sure? This device will stop syncing.')) return;
-        const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3000';
-        const res = await fetch(`${serverUrl}/api/keys/${id}`, { method: 'DELETE', credentials: 'include' });
+        const res = await fetch(`/api/keys/${id}`, { method: 'DELETE', credentials: 'include' });
 
         if (res.status === 401) {
             await authClient.signOut();

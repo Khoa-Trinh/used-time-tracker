@@ -4,12 +4,11 @@ import DashboardClient from './dashboard-client';
 
 async function getStats(cookieHeader: string) {
   try {
-    const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3000';
     // We default to 'UTC' or try to guess? Client will re-fetch with correct timezone if needed, 
     // or we just show UTC initially. A small hydration mismatch update is fine compared to 6s wait.
     // Or we can rely on a cookie for timezone if we had one.
     const timeZone = 'UTC';
-    const res = await fetch(`${serverUrl}/api/stats?timeZone=${timeZone}&groupBy=hour`, {
+    const res = await fetch(`/api/stats?timeZone=${timeZone}&groupBy=hour`, {
       headers: { Cookie: cookieHeader },
       cache: 'no-store',
     });

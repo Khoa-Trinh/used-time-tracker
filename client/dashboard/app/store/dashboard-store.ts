@@ -47,9 +47,8 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
 
         try {
             const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-            const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3000';
 
-            const res = await fetch(`${serverUrl}/api/stats?timeZone=${timeZone}&groupBy=hour`, {
+            const res = await fetch(`/api/stats?timeZone=${timeZone}&groupBy=hour`, {
                 credentials: 'include'
             });
 
@@ -140,8 +139,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
             // 2. Background API Call
             // console.log(`[UpdateCategory:${uniqueId}] Sending API request...`);
             try {
-                const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3000';
-                const res = await fetch(`${serverUrl}/api/apps/${appId}/category`, {
+                const res = await fetch(`/api/apps/${appId}/category`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ category }),
