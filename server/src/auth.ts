@@ -17,4 +17,13 @@ export const auth = betterAuth({
         enabled: true
     },
     trustedOrigins: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : [],
+    advanced: {
+        cookiePrefix: "used-time-tracker",
+    },
+    session: {
+        cookieCache: {
+            enabled: true,
+            maxAge: 5 * 60,
+        }
+    }
 });
