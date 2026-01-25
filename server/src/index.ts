@@ -54,7 +54,8 @@ async function getUser(request: Request) {
 
 const app = new Elysia()
     .use(cors({
-        origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : true
+        origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : true,
+        credentials: true
     }))
     .get('/', () => 'Time Tracker API')
     .all('/api/auth/*', ({ request }) => auth.handler(request))
