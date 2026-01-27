@@ -14,7 +14,7 @@ export default defineConfig({
     host_permissions: [
       "http://localhost:3000/*",
       "https://used-time-tracker.vercel.app/*",
-      "https://*.vercel.app/*"
+      "https://api-used-time-tracker.vercel.app/*"
     ],
   }
 });

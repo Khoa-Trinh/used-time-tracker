@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { Laptop, Activity } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { formatTime, getPlatformIcon, StatItem } from '../utils/dashboard-utils';
+import { formatTime, getPlatformIcon, StatItem } from '../../utils/dashboard-utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { memo } from 'react';
 

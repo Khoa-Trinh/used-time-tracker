@@ -1,11 +1,11 @@
 import { motion } from 'framer-motion';
 import { Activity, Clock } from 'lucide-react';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { IGNORED_APPS } from '../utils/dashboard-utils';
-import TimelineRow from './TimelineRow';
+import { IGNORED_APPS } from '../../utils/dashboard-utils';
+import TimelineRow from '../TimelineRow';
 import { Skeleton } from '@/components/ui/skeleton';
 import { memo, useMemo } from 'react';
-import { useDashboardStore } from '../store/dashboard-store';
+import { useDashboardStore } from '../../store/dashboard-store';
 import { useShallow } from 'zustand/react/shallow';
 
 const item = {

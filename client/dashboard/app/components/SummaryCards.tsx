@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
 import { Clock, Trophy, Activity } from 'lucide-react';
-import { RadialProgress } from './RadialProgress';
+import { RadialProgress } from './charts/RadialProgress';
 import { formatTime, StatItem } from '../utils/dashboard-utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { memo } from 'react';

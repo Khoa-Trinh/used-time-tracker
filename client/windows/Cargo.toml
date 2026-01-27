@@ -21,4 +21,10 @@ windows = { version = "0.58", features = [
 ] }
 eframe = "0.29.1"
 ctrlc = "3.5.1"
+tray-icon = "0.19.2"
+image = "0.25"
+
+[build-dependencies]
+winres = "0.1"
+image = "0.25"
 

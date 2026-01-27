@@ -3,7 +3,7 @@
 import { useMemo } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { StatItem, formatTime } from '@/app/utils/dashboard-utils';
+import { StatItem, formatTime, IGNORED_APPS } from '@/app/utils/dashboard-utils';
 import { PieChart as PieIcon } from 'lucide-react';
 import { useDashboardStore } from '@/app/store/dashboard-store';
 
@@ -16,8 +16,14 @@ const COLORS = {
 
 export default function CategoryDistribution() {
     const dailyStats = useDashboardStore(state => state.dailyStats);
+    const hideBrowsers = useDashboardStore(state => state.hideBrowsers);
 
     const data = useMemo(() => {
+        let stats = dailyStats;
+        if (hideBrowsers) {
+            stats = stats.filter(item => !IGNORED_APPS.some(ignored => item.appName.toLowerCase().includes(ignored.toLowerCase())));
+        }
+
         const distribution = {
             productive: 0,
             distracting: 0,
@@ -25,7 +31,7 @@ export default function CategoryDistribution() {
             uncategorized: 0
         };
 
-        dailyStats.forEach(app => {
+        stats.forEach(app => {
             const cat = app.category || 'uncategorized';
             if (cat in distribution) {
                 distribution[cat as keyof typeof distribution] += app.totalTimeMs;

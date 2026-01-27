@@ -1,3 +1,5 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 use active_win_pos_rs::get_active_window;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -5,6 +7,8 @@ use std::fs;
 use std::sync::{Arc, OnceLock};
 use std::thread;
 use tokio::sync::mpsc;
+use tray_icon::menu::{Menu, MenuEvent, MenuItem};
+use tray_icon::TrayIconBuilder;
 use windows::core::PCWSTR;
 use windows::Win32::Foundation::{GetLastError, ERROR_ALREADY_EXISTS, HWND};
 use windows::Win32::System::Threading::CreateMutexW;
@@ -45,6 +49,8 @@ struct SessionPayload {
 enum AppEvent {
     FocusChange,
     Shutdown,
+    TrayExit,
+    TrayConfig,
 }
 
 static EVENT_CHANNEL: OnceLock<mpsc::UnboundedSender<AppEvent>> = OnceLock::new();
@@ -74,7 +80,7 @@ fn check_single_instance() {
         let _mutex = CreateMutexW(None, true, PCWSTR(name_utf16.as_ptr()));
         
         if GetLastError() == ERROR_ALREADY_EXISTS {
-            eprintln!("Another instance of Time Tracker is already running. Exiting.");
+// eprintln!("Another instance of Time Tracker is already running. Exiting.");
             std::process::exit(1);
         }
     }
@@ -91,18 +97,18 @@ async fn main() {
     let exe_dir = exe_path.parent().expect("Failed to get executable directory");
     let config_path = exe_dir.join("config.json");
 
-    println!("Loading config from: {:?}", config_path);
+// println!("Loading config from: {:?}", config_path);
 
     let config = match fs::read_to_string(&config_path) {
         Ok(content) => serde_json::from_str(&content).unwrap_or_else(|_| Config::default()),
         Err(_) => {
-            println!("Config file not found. Launching Configure Tool...");
+// println!("Config file not found. Launching Configure Tool...");
             // Try to run configure.exe in the same directory
             let setup_exe = exe_dir.join("configure.exe");
             if setup_exe.exists() {
                 let _ = std::process::Command::new(setup_exe).spawn();
             } else {
-                eprintln!("configure.exe not found! Please create config.json manually.");
+// eprintln!("configure.exe not found! Please create config.json manually.");
             }
             return;
         }
@@ -122,24 +128,47 @@ async fn main() {
     // Get IANA Timezone or default to UTC
     let time_zone = iana_time_zone::get_timezone().unwrap_or_else(|_| "UTC".to_string());
 
-    println!("Starting Time Tracker Client (Event Driven)...");
-    println!("Process ID: {}", std::process::id());
-    println!("Device ID: {}", device_id);
-    println!("Timezone: {}", time_zone);
-    println!("Server URL: {}", server_url);
+// println!("Starting Time Tracker Client (Event Driven)...");
+    // println!("Process ID: {}", std::process::id());
+    // println!("Device ID: {}", device_id);
+    // println!("Timezone: {}", time_zone);
+    // println!("Server URL: {}", server_url);
+    
+    // 2. Setup System Tray & Windows Hook (Unified Thread)
+    // We need to create the tray icon on the same thread that pumps messages.
+    let (tx_menu_ids, rx_menu_ids) = std::sync::mpsc::channel();
+    let tray_icon_path = exe_dir.join("icon.ico");
 
-    let (tx, mut rx) = mpsc::unbounded_channel();
-    let tx_clone = tx.clone();
-    EVENT_CHANNEL.set(tx).expect("Failed to set event channel");
+    thread::spawn(move || unsafe {
+        // Create Tray Menu
+        let tray_menu = Menu::new();
+        let config_item = MenuItem::new("Configure...", true, None);
+        let exit_item = MenuItem::new("Exit", true, None);
+        
+        // Share IDs with main thread listener
+        let _ = tx_menu_ids.send((config_item.id().clone(), exit_item.id().clone()));
+        
+        tray_menu.append(&config_item).expect("Failed to add config menu item");
+        tray_menu.append(&exit_item).expect("Failed to add exit menu item");
+    
+        // Load icon
+        let icon = if tray_icon_path.exists() {
+// println!("Loading icon from: {:?}", tray_icon_path);
+            load_icon_from_path(tray_icon_path)
+        } else {
+// println!("Icon file not found at {:?}, using fallback", tray_icon_path);
+            create_default_icon()
+        };
+        
+        // Create Tray Icon
+        let tray_icon = TrayIconBuilder::new()
+            .with_menu(Box::new(tray_menu))
+            .with_tooltip("Tick Time Tracker")
+            .with_icon(icon)
+            .build()
+            .expect("Failed to create tray icon");
 
-    // Handle Ctrl+C (Graceful Shutdown)
-    ctrlc::set_handler(move || {
-        println!("\nReceived shutdown signal...");
-        let _ = tx_clone.send(AppEvent::Shutdown);
-    }).expect("Error setting Ctrl-C handler");
-
-    // Spawn Windows Event Hook Thread
-    thread::spawn(|| unsafe {
+        // Set Window Hook
         let hook = SetWinEventHook(
             EVENT_SYSTEM_FOREGROUND,
             EVENT_SYSTEM_FOREGROUND,
@@ -151,14 +180,46 @@ async fn main() {
         );
 
         if hook.0.is_null() {
-            eprintln!("Failed to set window hook");
-            return;
+// eprintln!("Failed to set window hook");
         }
 
+        // Message Loop (Handles both Hook and Tray Icon)
         let mut msg = MSG::default();
         while GetMessageW(&mut msg, None, 0, 0).0 > 0 {
             let _ = TranslateMessage(&msg);
             DispatchMessageW(&msg);
+        }
+
+        // Keep tray icon alive until loop exits
+        drop(tray_icon);
+    });
+
+    // Wait for Menu IDs to start listener
+    let (config_id, exit_id) = rx_menu_ids.recv().expect("Failed to receive menu IDs");
+
+    let (tx, mut rx) = mpsc::unbounded_channel();
+    let tx_clone = tx.clone();
+    let tx_tray = tx.clone();
+    EVENT_CHANNEL.set(tx).expect("Failed to set event channel");
+
+    // Handle Ctrl+C (Graceful Shutdown)
+    ctrlc::set_handler(move || {
+// println!("\nReceived shutdown signal...");
+        let _ = tx_clone.send(AppEvent::Shutdown);
+    }).expect("Error setting Ctrl-C handler");
+    
+    // Handle Tray Menu Events
+    let menu_channel = MenuEvent::receiver();
+    thread::spawn(move || {
+        loop {
+            if let Ok(event) = menu_channel.recv() {
+                if event.id == exit_id {
+                    let _ = tx_tray.send(AppEvent::TrayExit);
+                    break;
+                } else if event.id == config_id {
+                    let _ = tx_tray.send(AppEvent::TrayConfig);
+                }
+            }
         }
     });
 
@@ -173,12 +234,28 @@ async fn main() {
     // Main Event Loop
     while let Some(event) = rx.recv().await {
         
-        let should_exit = matches!(event, AppEvent::Shutdown);
+        // Handle Configure request
+        if matches!(event, AppEvent::TrayConfig) {
+// println!("Launching configure.exe...");
+            let exe_path = std::env::current_exe().expect("Failed to get current executable path");
+            let exe_dir = exe_path.parent().expect("Failed to get executable directory");
+            let configure_exe = exe_dir.join("configure.exe");
+            
+            if configure_exe.exists() {
+                let _ = std::process::Command::new(configure_exe).spawn();
+            }
+            
+            // Exit tracker so configure can relaunch it
+// println!("Exiting tracker for reconfiguration...");
+            break;
+        }
+        
+        let should_exit = matches!(event, AppEvent::Shutdown | AppEvent::TrayExit);
         let mut app_changed = false;
         let mut new_app_name = String::new();
 
         if should_exit {
-             println!("Shutting down. Flushing data...");
+// println!("Shutting down. Flushing data...");
         } else {
             // Check active window
              match get_active_window() {
@@ -202,7 +279,7 @@ async fn main() {
                 
                 // If shutting down, save even small durations. Otherwise, keep 1s threshold.
                 if duration.num_seconds() > 0 {
-                    println!("Logged: {} ({}s)", prev_app, duration.num_seconds());
+// println!("Logged: {} ({}s)", prev_app, duration.num_seconds());
                         
                     let payload = SessionPayload {
                         device_id: device_id.clone(),
@@ -224,8 +301,8 @@ async fn main() {
                             req = req.header("Authorization", format!("Bearer {}", key));
                         }
                         match req.json(&payload).send().await {
-                            Ok(res) => if !res.status().is_success() { println!("Error: {}", res.status()); },
-                            Err(e) => println!("Network error: {}", e),
+                            Ok(res) => if !res.status().is_success() { /* println!("Error: {}", res.status()); */ },
+                            Err(_e) => { /* println!("Network error: {}", e) */ },
                         }
                     };
 
@@ -244,9 +321,58 @@ async fn main() {
             // Start tracking new app
             current_app = Some(new_app_name.clone());
             start_time = Some(now);
-            println!("Switched to: {}", new_app_name);
+// println!("Switched to: {}", new_app_name);
         }
     }
-    println!("Goodbye!");
+// println!("Goodbye!");
+}
+
+// Helper functions for loading tray icon
+fn load_icon_from_path(path: std::path::PathBuf) -> tray_icon::Icon {
+    let (icon_rgba, icon_width, icon_height) = {
+        let image = image::open(&path)
+            .expect("Failed to open icon file")
+            .into_rgba8();
+        let (width, height) = image.dimensions();
+        let rgba = image.into_raw();
+        (rgba, width, height)
+    };
+    tray_icon::Icon::from_rgba(icon_rgba, icon_width, icon_height)
+        .expect("Failed to create icon from image data")
+}
+
+fn create_default_icon() -> tray_icon::Icon {
+    // Create a simple 16x16 icon with a colored circle
+    let size = 16u32;
+    let mut rgba = Vec::with_capacity((size * size * 4) as usize);
+    
+    let center = size as f32 / 2.0;
+    let radius = size as f32 / 2.5;
+    
+    for y in 0..size {
+        for x in 0..size {
+            let dx = x as f32 - center;
+            let dy = y as f32 - center;
+            let distance = (dx * dx + dy * dy).sqrt();
+            
+            if distance < radius {
+                // Purple/pink gradient (matching the icon colors)
+                let factor = distance / radius;
+                rgba.push((200.0 * (1.0 - factor) + 139.0 * factor) as u8); // R
+                rgba.push((50.0 * (1.0 - factor) + 92.0 * factor) as u8);   // G
+                rgba.push((200.0 * (1.0 - factor) + 246.0 * factor) as u8); // B
+                rgba.push(255); // A
+            } else {
+                // Transparent background
+                rgba.push(0);
+                rgba.push(0);
+                rgba.push(0);
+                rgba.push(0);
+            }
+        }
+    }
+    
+    tray_icon::Icon::from_rgba(rgba, size, size)
+        .expect("Failed to create default icon")
 }
 

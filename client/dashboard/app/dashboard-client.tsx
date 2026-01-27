@@ -10,12 +10,13 @@ import { useShallow } from 'zustand/react/shallow';
 
 import DashboardHeader from './components/DashboardHeader';
 import SummaryCards from './components/SummaryCards';
-import HourlyTimeline from './components/HourlyTimeline';
+import HourlyTimeline from './components/charts/HourlyTimeline';
+import TimelineRow from './components/TimelineRow';
 import { IGNORED_APPS, StatItem } from './utils/dashboard-utils';
 import { useDashboardStore } from './store/dashboard-store';
 
 // Keep TopAppsList lazy as it's often off-screen
-const TopAppsList = dynamic(() => import('./components/TopAppsList'), {
+const TopAppsList = dynamic(() => import('./components/charts/TopAppsList'), {
   loading: () => <div className="h-[500px] w-full bg-card/50 rounded-3xl animate-pulse border border-border/50" />
 });
 

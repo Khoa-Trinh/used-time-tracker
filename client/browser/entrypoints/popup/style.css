@@ -3,12 +3,80 @@
   box-sizing: border-box;
 }
 
+:root {
+  --bg-color: #ffffff;
+  --text-color: #18181b;
+  --border-color: #e4e4e7;
+  --input-bg: #f4f4f5;
+  --input-border: #e4e4e7;
+  --label-color: #52525b;
+  --helper-text: #71717a;
+  --header-border: #f4f4f5;
+  --button-secondary-bg: #e4e4e7;
+  --button-secondary-text: #18181b;
+  --scrollbar-track: #ffffff;
+  --scrollbar-thumb: #e4e4e7;
+  --scrollbar-thumb-hover: #d4d4d8;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-color: #09090b;
+    --text-color: #e4e4e7;
+    --border-color: #27272a;
+    --input-bg: #18181b;
+    --input-border: #27272a;
+    --label-color: #a1a1aa;
+    --helper-text: #71717a;
+    --header-border: #27272a;
+    --button-secondary-bg: #27272a;
+    --button-secondary-text: #e4e4e7;
+    --scrollbar-track: #09090b;
+    --scrollbar-thumb: #27272a;
+    --scrollbar-thumb-hover: #3f3f46;
+  }
+}
+
+/* Add support for manual theme toggling via data-theme attribute */
+[data-theme="dark"] {
+  --bg-color: #09090b;
+  --text-color: #e4e4e7;
+  --border-color: #27272a;
+  --input-bg: #18181b;
+  --input-border: #27272a;
+  --label-color: #a1a1aa;
+  --helper-text: #71717a;
+  --header-border: #27272a;
+  --button-secondary-bg: #27272a;
+  --button-secondary-text: #e4e4e7;
+  --scrollbar-track: #09090b;
+  --scrollbar-thumb: #27272a;
+  --scrollbar-thumb-hover: #3f3f46;
+}
+
+[data-theme="light"] {
+  --bg-color: #ffffff;
+  --text-color: #18181b;
+  --border-color: #e4e4e7;
+  --input-bg: #f4f4f5;
+  --input-border: #e4e4e7;
+  --label-color: #52525b;
+  --helper-text: #71717a;
+  --header-border: #f4f4f5;
+  --button-secondary-bg: #e4e4e7;
+  --button-secondary-text: #18181b;
+  --scrollbar-track: #ffffff;
+  --scrollbar-thumb: #e4e4e7;
+  --scrollbar-thumb-hover: #d4d4d8;
+}
+
 body {
   margin: 0;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
-  background-color: #09090b;
-  color: #e4e4e7;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  transition: background-color 0.3s, color 0.3s;
 }
 
 /* Utilities */
@@ -25,7 +93,7 @@ body {
   align-items: center;
   justify-content: space-between;
   padding-bottom: 16px;
-  border-bottom: 1px solid #27272a;
+  border-bottom: 1px solid var(--header-border);
 }
 
 .title {
@@ -47,15 +115,15 @@ body {
 .label {
   font-size: 13px;
   font-weight: 500;
-  color: #a1a1aa;
+  color: var(--label-color);
 }
 
 .input {
-  background-color: #18181b;
-  border: 1px solid #27272a;
+  background-color: var(--input-bg);
+  border: 1px solid var(--input-border);
   border-radius: 8px;
   padding: 10px 12px;
-  color: #fff;
+  color: var(--text-color);
   font-size: 14px;
   transition: border-color 0.2s, ring 0.2s;
   outline: none;
@@ -68,7 +136,7 @@ body {
 
 .helper-text {
   font-size: 11px;
-  color: #71717a;
+  color: var(--helper-text);
 }
 
 .button {
@@ -82,6 +150,11 @@ body {
   cursor: pointer;
   transition: opacity 0.2s;
   margin-top: auto;
+}
+
+.button-secondary {
+  background: var(--button-secondary-bg) !important;
+  color: var(--button-secondary-text) !important;
 }
 
 .button:hover {
@@ -103,17 +176,35 @@ body {
   color: #ef4444;
 }
 
+/* Theme Toggle Button */
+.theme-toggle {
+  background: none;
+  border: 1px solid var(--border-color);
+  color: var(--text-color);
+  border-radius: 6px;
+  padding: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s;
+}
+
+.theme-toggle:hover {
+  background-color: var(--input-bg);
+}
+
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: #09090b;
+  background: var(--scrollbar-track);
 }
 ::-webkit-scrollbar-thumb {
-  background: #27272a;
+  background: var(--scrollbar-thumb);
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #3f3f46;
+  background: var(--scrollbar-thumb-hover);
 }

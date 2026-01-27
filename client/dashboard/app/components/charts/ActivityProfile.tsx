@@ -3,7 +3,7 @@
 import { useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { StatItem, formatTime } from '@/app/utils/dashboard-utils';
+import { StatItem, formatTime, IGNORED_APPS } from '@/app/utils/dashboard-utils';
 import { BarChart3 } from 'lucide-react';
 import { useDashboardStore } from '@/app/store/dashboard-store';
 import { useShallow } from 'zustand/react/shallow';
@@ -16,10 +16,11 @@ const COLORS = {
 };
 
 export default function ActivityProfile() {
-    const { hourlyData, selectedHour, setSelectedHour } = useDashboardStore(useShallow(state => ({
+    const { hourlyData, selectedHour, setSelectedHour, hideBrowsers } = useDashboardStore(useShallow(state => ({
         hourlyData: state.hourlyData,
         selectedHour: state.selectedHour,
-        setSelectedHour: state.setSelectedHour
+        setSelectedHour: state.setSelectedHour,
+        hideBrowsers: state.hideBrowsers
     })));
 
     const data = useMemo(() => {
@@ -27,7 +28,12 @@ export default function ActivityProfile() {
         // Array [{ hour: '09:00', productive: 12000, distracting: 5000 ... }]
         const result = [];
         for (let i = 0; i < 24; i++) {
-            const hourItems = hourlyData[i] || [];
+            let hourItems = hourlyData[i] || [];
+
+            if (hideBrowsers) {
+                hourItems = hourItems.filter(item => !IGNORED_APPS.some(ignored => item.appName.toLowerCase().includes(ignored.toLowerCase())));
+            }
+
             const hourStats: any = {
                 hour: i,
                 label: `${i.toString().padStart(2, '0')}:00`,
