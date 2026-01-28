@@ -1,4 +1,5 @@
 import { pgTable, text, timestamp, date, unique, bigint, uuid, pgEnum, boolean } from 'drizzle-orm/pg-core';
+import { categories } from './categories';
 
 export const platformEnum = pgEnum('platform', ['web', 'ios', 'android', 'macos', 'windows', 'linux']);
 
@@ -63,12 +64,11 @@ export const dailyActivities = pgTable('daily_activities', {
     unq: unique().on(t.deviceId, t.date),
 }));
 
-export const categoryEnum = pgEnum('category', ['productive', 'distracting', 'neutral', 'uncategorized']);
-
 export const apps = pgTable('apps', {
     id: uuid('id').defaultRandom().primaryKey(),
     name: text('name').notNull().unique(),
-    category: categoryEnum('category').notNull().default('uncategorized'),
+    categoryId: uuid('category_id'), // Will be FK to categories table
+    autoSuggested: boolean('auto_suggested').notNull().default(false),
 });
 
 export const appUsages = pgTable('app_usages', {
@@ -128,8 +128,12 @@ export const appUsagesRelations = relations(appUsages, ({ one, many }) => ({
     timelines: many(usageTimelines),
 }));
 
-export const appsRelations = relations(apps, ({ many }) => ({
+export const appsRelations = relations(apps, ({ many, one }) => ({
     usages: many(appUsages),
+    category: one(categories, {
+        fields: [apps.categoryId],
+        references: [categories.id],
+    }),
 }));
 
 export const usageTimelinesRelations = relations(usageTimelines, ({ one }) => ({

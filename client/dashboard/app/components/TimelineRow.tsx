@@ -2,6 +2,7 @@ import { MoreHorizontal, Check } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuPortal, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { getPlatformIcon, StatItem } from '../utils/dashboard-utils';
+import { AppIcon } from '@/components/AppIcon';
 import { memo, useState } from 'react';
 
 interface TimelineRowProps {
@@ -17,10 +18,12 @@ const TimelineRow = memo(function TimelineRow({ app, updateCategory, selectedHou
         <div className="flex items-center group relative h-12 hover:bg-accent/50 rounded-xl transition-colors px-2 border border-transparent hover:border-border">
             {/* Row Label (Fixed 180px) */}
             <div className="w-[180px] shrink-0 text-sm font-medium truncate pr-6 flex items-center gap-3" title={app.appName}>
-                {/* Platform Icon */}
-                <div className="shrink-0 p-1.5 rounded-md bg-muted text-muted-foreground group-hover:text-foreground transition-colors" title={app.platforms?.join(', ') || 'Unknown Platform'}>
-                    {getPlatformIcon(app.platforms)}
-                </div>
+                {/* App Icon */}
+                <AppIcon
+                    appName={app.appName}
+                    platform={app.platforms?.includes('web') ? 'web' : 'windows'}
+                    size="md"
+                />
 
                 {/* Name + Menu Container - Flex Row Center */}
                 <div className="flex-1 min-w-0 flex items-center justify-between mr-4">

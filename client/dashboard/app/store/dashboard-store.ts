@@ -10,6 +10,7 @@ interface DashboardState {
     error: string | null;
     hideBrowsers: boolean;
     selectedHour: number;
+    lastFetchTimestamp: string | null; // Track latest data timestamp for incremental loading
 
     // Actions
     setHourlyData: (data: Record<number, StatItem[]>) => void;
@@ -19,6 +20,7 @@ interface DashboardState {
     setError: (error: string | null) => void;
     setHideBrowsers: (hide: boolean) => void;
     setSelectedHour: (hour: number) => void;
+    setLastFetchTimestamp: (timestamp: string | null) => void;
 
     // Complex Actions
     fetchStats: (onUnauthorized?: () => void) => Promise<void>;
@@ -33,6 +35,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
     error: null,
     hideBrowsers: true,
     selectedHour: new Date().getHours(),
+    lastFetchTimestamp: null,
 
     setHourlyData: (data) => set({ hourlyData: data }),
     setDailyStats: (data) => set({ dailyStats: data }),
@@ -41,14 +44,41 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
     setError: (error) => set({ error }),
     setHideBrowsers: (hideBrowsers) => set({ hideBrowsers }),
     setSelectedHour: (selectedHour) => set({ selectedHour }),
+    setLastFetchTimestamp: (lastFetchTimestamp) => set({ lastFetchTimestamp }),
 
     fetchStats: async (onUnauthorized) => {
-        const { setLoading, setRefreshing, setError, setHourlyData, setDailyStats } = get();
+        const {
+            setLoading,
+            setRefreshing,
+            setError,
+            setHourlyData,
+            setDailyStats,
+            setLastFetchTimestamp,
+            hourlyData: cachedHourly,
+            dailyStats: cachedDaily,
+            lastFetchTimestamp
+        } = get();
 
         try {
             const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-            const res = await fetch(`/api/stats?timeZone=${timeZone}&groupBy=hour`, {
+            // Check if we should clear cache (date changed)
+            const { shouldClearCache, mergeHourlyData, mergeAppStats, findLatestTimestamp } = await import('./stats-merge');
+
+            let since = lastFetchTimestamp;
+            if (shouldClearCache(lastFetchTimestamp)) {
+                // Clear cache on new day
+                since = null;
+                setLastFetchTimestamp(null);
+            }
+
+            // Build URL with optional 'since' parameter
+            let url = `/api/stats?timeZone=${timeZone}&groupBy=hour`;
+            if (since) {
+                url += `&since=${encodeURIComponent(since)}`;
+            }
+
+            const res = await fetch(url, {
                 credentials: 'include'
             });
 
@@ -64,8 +94,27 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
             if (json.success) {
                 // Ensure we got the new structure
                 if ('hourly' in json.data && 'daily' in json.data) {
-                    setHourlyData(json.data.hourly || {});
-                    setDailyStats(json.data.daily || []);
+                    const newHourly = json.data.hourly || {};
+                    const newDaily = json.data.daily || [];
+
+                    // If this is incremental (has 'since'), merge with cached data
+                    if (since) {
+                        const mergedHourly = mergeHourlyData(cachedHourly, newHourly);
+                        const mergedDaily = mergeAppStats(cachedDaily, newDaily);
+
+                        setHourlyData(mergedHourly);
+                        setDailyStats(mergedDaily);
+                    } else {
+                        // Full fetch, use new data directly
+                        setHourlyData(newHourly);
+                        setDailyStats(newDaily);
+                    }
+
+                    // Update last fetch timestamp
+                    const latestTimestamp = findLatestTimestamp(json.data);
+                    if (latestTimestamp) {
+                        setLastFetchTimestamp(latestTimestamp);
+                    }
                 } else {
                     // Fallback for unexpected response (or legacy)
                     setHourlyData((json.data as any) || {});

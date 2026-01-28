@@ -14,6 +14,7 @@ import HourlyTimeline from './components/charts/HourlyTimeline';
 import TimelineRow from './components/TimelineRow';
 import { IGNORED_APPS, StatItem } from './utils/dashboard-utils';
 import { useDashboardStore } from './store/dashboard-store';
+import { preloadFavicons } from '@/lib/favicon-cache';
 
 // Keep TopAppsList lazy as it's often off-screen
 const TopAppsList = dynamic(() => import('./components/charts/TopAppsList'), {
@@ -92,6 +93,18 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
     const score = total > 0 ? Math.round((productive / total) * 100) : 0;
     const top = dailyStats.length > 0 ? dailyStats[0] : null;
     return { totalTimeMs: total, productiveMs: productive, productivityScore: score, topApp: top };
+  }, [dailyStats]);
+
+  // Preload favicons for all apps with Browser Cache API
+  useEffect(() => {
+    if (dailyStats.length > 0) {
+      preloadFavicons(
+        dailyStats.map(app => ({
+          appName: app.appName,
+          platform: app.platforms?.includes('web') ? 'web' : 'windows'
+        }))
+      );
+    }
   }, [dailyStats]);
 
   if (error) return (

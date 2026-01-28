@@ -1,7 +1,9 @@
 import { Elysia, t } from 'elysia';
 import { db } from './db';
 import { devices, dailyActivities, appUsages, usageTimelines, apps, apiKeys } from './db/schema';
+import { categories, urlPatterns } from './db/categories';
 import { sql, eq, and, gte, lte, sum, desc } from 'drizzle-orm';
+import { gzipSync, brotliCompressSync } from 'node:zlib';
 
 import { cors } from '@elysiajs/cors';
 
@@ -57,6 +59,44 @@ const app = new Elysia()
         origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : true,
         credentials: true
     }))
+    .mapResponse(({ request, response, set }) => {
+        // Skip if response is not compressible or explicitly excluded
+        if (!response || typeof response !== 'object' || response === null) return;
+
+        // Simple threshold check (roughly >1KB)
+        // This is an estimate as we don't always know exact size before stringify
+        const isCompressible = (data: any) => {
+            if (!data) return false;
+            // Compress JSON objects and arrays that are substantial
+            if (typeof data === 'object') {
+                return true; // We'll let the compressor handle small objects efficiently anyway
+            }
+            return typeof data === 'string' && data.length > 1024;
+        };
+
+        if (!isCompressible(response)) return;
+
+        const acceptEncoding = request.headers.get('accept-encoding') || '';
+        if (!acceptEncoding) return;
+
+        // Try Brotli first (better compression)
+        if (acceptEncoding.includes('br')) {
+            set.headers['Content-Encoding'] = 'br';
+            set.headers['Content-Type'] = 'application/json';
+            return new Response(brotliCompressSync(JSON.stringify(response)), {
+                headers: set.headers as any
+            });
+        }
+
+        // Fallback to Gzip
+        if (acceptEncoding.includes('gzip')) {
+            set.headers['Content-Encoding'] = 'gzip';
+            set.headers['Content-Type'] = 'application/json';
+            return new Response(gzipSync(JSON.stringify(response)), {
+                headers: set.headers as any
+            });
+        }
+    })
     .get('/', () => 'Time Tracker API')
     .all('/api/auth/*', ({ request }) => auth.handler(request))
     .post('/api/log-session', async ({ body, request }) => {
@@ -65,7 +105,7 @@ const app = new Elysia()
             return { success: false, error: 'Unauthorized', status: 401 };
         }
 
-        const { deviceId, devicePlatform, appName, startTime, endTime, timeZone } = body;
+        const { deviceId, devicePlatform, appName, startTime, endTime, timeZone, url } = body;
         const start = new Date(startTime);
         const end = new Date(endTime);
         const durationMs = end.getTime() - start.getTime();
@@ -130,11 +170,52 @@ const app = new Elysia()
             }
             if (!daily) throw new Error('Failed to ensure daily activity');
 
-            // 3. Upsert App
+            // 3. Upsert App with Auto-categorization
             let [app] = await tx.select().from(apps).where(eq(apps.name, appName));
 
             if (!app) {
-                [app] = await tx.insert(apps).values({ name: appName }).returning();
+                // New app: Auto-categorize
+                const { suggestCategory } = await import('./services/auto-categorize');
+
+                const suggestion = suggestCategory(appName, url, currentUser.id);
+                let suggestedCategoryId: string | null = null;
+                let autoSuggested = false;
+
+                // First check URL patterns for this user
+                if (url) {
+                    const userPatterns = await tx.select().from(urlPatterns).where(
+                        eq(urlPatterns.userId, currentUser.id)
+                    ).orderBy(desc(urlPatterns.priority));
+
+                    const { matchUrlPattern } = await import('./services/auto-categorize');
+                    for (const pattern of userPatterns) {
+                        if (matchUrlPattern(url, pattern.pattern)) {
+                            suggestedCategoryId = pattern.categoryId;
+                            autoSuggested = false; // User-defined pattern, not auto
+                            break;
+                        }
+                    }
+                }
+
+                // If no URL pattern matched, use auto-categorization
+                if (!suggestedCategoryId && suggestion.confidence > 0.5) {
+                    const [defaultCategory] = await tx.select().from(categories).where(
+                        and(
+                            eq(categories.userId, currentUser.id),
+                            eq(categories.name, suggestion.suggestedCategory.charAt(0).toUpperCase() + suggestion.suggestedCategory.slice(1))
+                        )
+                    );
+                    if (defaultCategory) {
+                        suggestedCategoryId = defaultCategory.id;
+                        autoSuggested = true;
+                    }
+                }
+
+                [app] = await tx.insert(apps).values({
+                    name: appName,
+                    categoryId: suggestedCategoryId,
+                    autoSuggested
+                }).returning();
             }
             if (!app) throw new Error('Failed to ensure app');
 
@@ -182,6 +263,7 @@ const app = new Elysia()
             startTime: t.String({ format: 'date-time' }), // ISO 8601 validation
             endTime: t.String({ format: 'date-time' }),
             timeZone: t.String(),
+            url: t.Optional(t.String()), // Full URL for pattern matching
         })
     }) // Endpoint Chain Continues
     .get('/api/stats', async ({ query, request }) => {
@@ -190,7 +272,7 @@ const app = new Elysia()
             return { success: false, error: 'Unauthorized', status: 401 };
         }
 
-        const { from, to, timeZone, groupBy } = query;
+        const { from, to, timeZone, groupBy, since } = query;
 
         // Default to today if not specified
         const now = new Date();
@@ -200,7 +282,10 @@ const app = new Elysia()
         const fromStr = fromDate.toLocaleDateString('en-CA', { timeZone: timeZone || 'UTC' });
         const toStr = toDate.toLocaleDateString('en-CA', { timeZone: timeZone || 'UTC' });
 
-        console.log(`[Stats] Querying for user ${currentUser.name} from ${fromStr} to ${toStr} (groupBy: ${groupBy})`);
+        // Parse 'since' parameter for incremental loading
+        const sinceDate = since ? new Date(since) : null;
+
+        console.log(`[Stats] Querying for user ${currentUser.name} from ${fromStr} to ${toStr} (groupBy: ${groupBy}, since: ${sinceDate?.toISOString() || 'none'})`);
 
         // 1. Get user's devices
         const userDevices = await db.select({ id: devices.id, platform: devices.platform }).from(devices).where(eq(devices.userId, currentUser.id));
@@ -222,7 +307,10 @@ const app = new Elysia()
                 appUsages: {
                     with: {
                         app: true,
-                        timelines: true,
+                        timelines: sinceDate ? {
+                            // Incremental: only fetch timelines after 'since'
+                            where: (tl, { gt }) => gt(tl.endTime, sinceDate)
+                        } : true,
                     }
                 }
             }
@@ -241,7 +329,8 @@ const app = new Elysia()
             totalTimeMs: number;
             timelines: TimelineSegment[];
             platforms: Set<string>;
-            category: string;
+            categoryId: string | null;
+            autoSuggested: boolean;
         };
 
         const IGNORED_BROWSERS = new Set([
@@ -342,7 +431,8 @@ const app = new Elysia()
                                                 totalTimeMs: 0,
                                                 timelines: [],
                                                 platforms: new Set(),
-                                                category: usage.app.category
+                                                categoryId: usage.app.categoryId,
+                                                autoSuggested: usage.app.autoSuggested
                                             });
                                         }
                                         const entry = map.get(appName)!;
@@ -444,8 +534,8 @@ const app = new Elysia()
                 appId: string;
                 appName: string;
                 totalTimeMs: number;
-                icon?: string;
-                category: string;
+                categoryId: string | null;
+                autoSuggested: boolean;
                 timelines: Array<{
                     deviceId: string;
                     startTime: string;
@@ -464,7 +554,8 @@ const app = new Elysia()
                             appName,
                             totalTimeMs: 0,
                             timelines: [],
-                            category: usage.app.category
+                            categoryId: usage.app.categoryId,
+                            autoSuggested: usage.app.autoSuggested
                         });
                     }
                     const entry = statsMap.get(appName)!;
@@ -522,28 +613,181 @@ const app = new Elysia()
             const user = await getUser(request);
             if (!user) return { success: false, error: 'Unauthorized', status: 401 };
 
-            const { category } = body;
+            const { categoryId } = body;
             const appId = params.id;
 
-            // In a real multi-user app, we might check if the user "owns" this app or has usage on it.
-            // For now, since apps are global dictionary items, we allow any auth'd user to categorize.
-            // Or better: apps are shared but maybe customization should be per user?
-            // Schema has apps as global. Let's assume shared categorization for now (simple).
+            // Verify the category belongs to the user
+            const [category] = await db.select().from(categories).where(
+                and(eq(categories.id, categoryId), eq(categories.userId, user.id))
+            );
+
+            if (!category) {
+                return { success: false, error: 'Category not found or does not belong to user' };
+            }
 
             await db.update(apps)
-                .set({ category: category as any })
+                .set({
+                    categoryId: categoryId,
+                    autoSuggested: false // Clear auto-suggested flag when manually set
+                })
                 .where(eq(apps.id, appId));
 
             return { success: true };
         }, {
             body: t.Object({
-                category: t.Union([
-                    t.Literal('productive'),
-                    t.Literal('distracting'),
-                    t.Literal('neutral'),
-                    t.Literal('uncategorized')
-                ])
+                categoryId: t.String() // UUID of category
             })
+        })
+    )
+    .group('/api/categories', (app) => app
+        .get('/', async ({ request }) => {
+            const user = await getUser(request);
+            if (!user) return { success: false, error: 'Unauthorized', status: 401 };
+
+            const userCategories = await db.select().from(categories).where(eq(categories.userId, user.id));
+            return {
+                success: true,
+                data: userCategories
+            };
+        })
+        .post('/', async ({ body, request }) => {
+            const user = await getUser(request);
+            if (!user) return { success: false, error: 'Unauthorized', status: 401 };
+
+            const { name, color } = body;
+
+            const [newCategory] = await db.insert(categories).values({
+                userId: user.id,
+                name,
+                color,
+                isDefault: false,
+            }).returning();
+
+            return { success: true, data: newCategory };
+        }, {
+            body: t.Object({
+                name: t.String(),
+                color: t.String() // Hex color code
+            })
+        })
+        .patch('/:id', async ({ params, body, request }) => {
+            const user = await getUser(request);
+            if (!user) return { success: false, error: 'Unauthorized', status: 401 };
+
+            const { name, color } = body;
+
+            // Check ownership and prevent editing default categories
+            const [category] = await db.select().from(categories).where(
+                and(eq(categories.id, params.id), eq(categories.userId, user.id))
+            );
+
+            if (!category) {
+                return { success: false, error: 'Category not found' };
+            }
+
+            if (category.isDefault) {
+                return { success: false, error: 'Cannot edit default categories' };
+            }
+
+            const [updated] = await db.update(categories)
+                .set({ name, color })
+                .where(eq(categories.id, params.id))
+                .returning();
+
+            return { success: true, data: updated };
+        }, {
+            body: t.Object({
+                name: t.String(),
+                color: t.String()
+            })
+        })
+        .delete('/:id', async ({ params, request }) => {
+            const user = await getUser(request);
+            if (!user) return { success: false, error: 'Unauthorized', status: 401 };
+
+            // Check ownership and prevent deleting default categories
+            const [category] = await db.select().from(categories).where(
+                and(eq(categories.id, params.id), eq(categories.userId, user.id))
+            );
+
+            if (!category) {
+                return { success: false, error: 'Category not found' };
+            }
+
+            if (category.isDefault) {
+                return { success: false, error: 'Cannot delete default categories' };
+            }
+
+            // Get the "uncategorized" default category for this user
+            const [uncategorized] = await db.select().from(categories).where(
+                and(eq(categories.userId, user.id), eq(categories.name, 'Uncategorized'))
+            );
+
+            // Reassign apps using this category to uncategorized
+            if (uncategorized) {
+                await db.update(apps)
+                    .set({ categoryId: uncategorized.id })
+                    .where(eq(apps.categoryId, params.id));
+            }
+
+            await db.delete(categories).where(eq(categories.id, params.id));
+            return { success: true };
+        })
+    )
+    .group('/api/url-patterns', (app) => app
+        .get('/', async ({ request }) => {
+            const user = await getUser(request);
+            if (!user) return { success: false, error: 'Unauthorized', status: 401 };
+
+            const patterns = await db.query.urlPatterns.findMany({
+                where: (up, { eq }) => eq(up.userId, user.id),
+                with: {
+                    category: true,
+                },
+                orderBy: (up, { desc }) => [desc(up.priority)]
+            });
+
+            return { success: true, data: patterns };
+        })
+        .post('/', async ({ body, request }) => {
+            const user = await getUser(request);
+            if (!user) return { success: false, error: 'Unauthorized', status: 401 };
+
+            const { pattern, categoryId, priority } = body;
+
+            // Verify category belongs to user
+            const [category] = await db.select().from(categories).where(
+                and(eq(categories.id, categoryId), eq(categories.userId, user.id))
+            );
+
+            if (!category) {
+                return { success: false, error: 'Category not found or does not belong to user' };
+            }
+
+            const [newPattern] = await db.insert(urlPatterns).values({
+                userId: user.id,
+                pattern,
+                categoryId,
+                priority: priority || 0,
+            }).returning();
+
+            return { success: true, data: newPattern };
+        }, {
+            body: t.Object({
+                pattern: t.String(),
+                categoryId: t.String(),
+                priority: t.Optional(t.Number())
+            })
+        })
+        .delete('/:id', async ({ params, request }) => {
+            const user = await getUser(request);
+            if (!user) return { success: false, error: 'Unauthorized', status: 401 };
+
+            await db.delete(urlPatterns).where(
+                and(eq(urlPatterns.id, params.id), eq(urlPatterns.userId, user.id))
+            );
+
+            return { success: true };
         })
     )
 

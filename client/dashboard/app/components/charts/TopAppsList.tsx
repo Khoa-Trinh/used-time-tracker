@@ -3,6 +3,7 @@ import { Laptop, Activity } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { formatTime, getPlatformIcon, StatItem } from '../../utils/dashboard-utils';
 import { Skeleton } from '@/components/ui/skeleton';
+import { AppIcon } from '@/components/AppIcon';
 import { memo } from 'react';
 
 interface TopAppsListProps {
@@ -79,9 +80,11 @@ const TopAppsList = memo(function TopAppsList({ loading, dailyStats }: TopAppsLi
                                     className="group flex items-center justify-between p-3 rounded-xl hover:bg-accent border border-transparent hover:border-border transition-all"
                                 >
                                     <div className="flex items-center gap-4 min-w-0">
-                                        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-muted/50 text-muted-foreground font-mono text-sm group-hover:bg-accent group-hover:text-foreground transition-colors">
-                                            {index + 1}
-                                        </div>
+                                        <AppIcon
+                                            appName={app.appName}
+                                            platform={app.platforms?.includes('web') ? 'web' : 'windows'}
+                                            size="md"
+                                        />
 
                                         <div className="min-w-0">
                                             <h4 className="font-medium text-card-foreground truncate pr-4">{app.appName}</h4>

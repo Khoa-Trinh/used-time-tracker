@@ -68,6 +68,7 @@ export default defineBackground(() => {
     // fast read from cache if available
     const startTime = await getState('startTime');
     const currentUrl = await getState('currentUrl');
+    const currentTitle = await getState('currentTitle');
 
     if (!startTime || !currentUrl) return;
 
@@ -79,6 +80,7 @@ export default defineBackground(() => {
     if (shouldReset) {
       await setState('startTime', null);
       await setState('currentUrl', null);
+      await setState('currentTitle', null);
     } else {
       await setState('startTime', endTime); // Next session starts now
     }
@@ -111,6 +113,7 @@ export default defineBackground(() => {
         deviceId,
         devicePlatform: 'web',
         appName,
+        url: currentUrl, // Send full URL for pattern matching
         startTime: start.toISOString(),
         endTime: new Date(endTime).toISOString(),
         timeZone
@@ -142,6 +145,7 @@ export default defineBackground(() => {
       if (tab.active) {
         await setState('currentTabId', tabId);
         await setState('currentUrl', tab.url);
+        await setState('currentTitle', tab.title || '');
         await setState('startTime', Date.now());
       }
     } catch (err) {

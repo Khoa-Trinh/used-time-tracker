@@ -4,6 +4,7 @@ import { Clock, Trophy, Activity } from 'lucide-react';
 import { RadialProgress } from './charts/RadialProgress';
 import { formatTime, StatItem } from '../utils/dashboard-utils';
 import { Skeleton } from '@/components/ui/skeleton';
+import { AppIcon } from '@/components/AppIcon';
 import { memo } from 'react';
 
 interface SummaryCardsProps {
@@ -84,9 +85,18 @@ const SummaryCards = memo(function SummaryCards({
                             <span className="text-muted-foreground font-medium text-sm">Top App</span>
                         </div>
                         <div>
-                            <h3 className="text-2xl font-bold text-card-foreground truncate pr-4" title={topApp?.appName}>
-                                {topApp?.appName || '-'}
-                            </h3>
+                            <div className="flex items-center gap-3">
+                                {topApp && (
+                                    <AppIcon
+                                        appName={topApp.appName}
+                                        platform={topApp.platforms?.includes('web') ? 'web' : 'windows'}
+                                        size="lg"
+                                    />
+                                )}
+                                <h3 className="text-2xl font-bold text-card-foreground truncate" title={topApp?.appName}>
+                                    {topApp?.appName || '-'}
+                                </h3>
+                            </div>
                             <div className="flex items-center gap-2 mt-2">
                                 <span className="text-purple-500 font-mono text-sm font-medium">
                                     {topApp ? formatTime(topApp.totalTimeMs) : '-'}
