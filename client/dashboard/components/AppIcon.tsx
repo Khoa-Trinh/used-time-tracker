@@ -5,10 +5,12 @@
  * Uses Google's favicon service for web apps and known desktop apps
  */
 
+'use client';
+
 import { getAppInitials, getAppColor } from '@/lib/favicon';
 import { getCachedFaviconUrl } from '@/lib/favicon-cache';
 import Image from 'next/image';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface AppIconProps {
     appName: string;
@@ -23,11 +25,15 @@ const sizeClasses = {
     lg: 'w-12 h-12 text-base',
 };
 
-export async function AppIcon({ appName, platform = 'web', size = 'md', className = '' }: AppIconProps) {
+export function AppIcon({ appName, platform = 'web', size = 'md', className = '' }: AppIconProps) {
     const [imageError, setImageError] = useState(false);
-    const faviconUrl = await getCachedFaviconUrl(appName, platform);
+    const [faviconUrl, setFaviconUrl] = useState<string>('');
 
-    if (imageError) {
+    useEffect(() => {
+        getCachedFaviconUrl(appName, platform).then(setFaviconUrl);
+    }, [appName, platform]);
+
+    if (imageError || !faviconUrl) {
         // Fallback to initials
         const initials = getAppInitials(appName);
         const colorClass = getAppColor(appName);
@@ -43,9 +49,9 @@ export async function AppIcon({ appName, platform = 'web', size = 'md', classNam
     }
 
     const sizeMap = {
-        sm: 24,
-        md: 32,
-        lg: 48,
+        sm: 16,
+        md: 24,
+        lg: 32,
     };
 
     return (

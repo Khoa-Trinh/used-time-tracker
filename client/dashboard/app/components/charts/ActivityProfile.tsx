@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { StatItem, formatTime, IGNORED_APPS } from '@/app/utils/dashboard-utils';
 import { BarChart3 } from 'lucide-react';
 import { useDashboardStore } from '@/app/store/dashboard-store';
+import { useCategoryStore } from '@/app/store/category-store';
 import { useShallow } from 'zustand/react/shallow';
 
 const COLORS = {
@@ -23,7 +24,11 @@ export default function ActivityProfile() {
         hideBrowsers: state.hideBrowsers
     })));
 
+    const categoryMap = useCategoryStore(state => state.categoryMap);
+
     const data = useMemo(() => {
+        if (!hourlyData) return [];
+
         // Transform hourlyData (Record<number, StatItem[]>) into array for Recharts
         // Array [{ hour: '09:00', productive: 12000, distracting: 5000 ... }]
         const result = [];
@@ -44,7 +49,9 @@ export default function ActivityProfile() {
             };
 
             hourItems.forEach(app => {
-                const cat = app.category || 'uncategorized';
+                const liveCategory = categoryMap[app.appId];
+                const cat = (liveCategory ? liveCategory.category : app.category) || 'uncategorized';
+
                 if (cat in hourStats) {
                     // Recharts bar size depends on value. We want minutes or milliseconds?
                     // Milliseconds is huge. Let's convert to Minutes for the chart value so tooltip is readable raw, 
@@ -60,7 +67,7 @@ export default function ActivityProfile() {
             result.push(hourStats);
         }
         return result;
-    }, [hourlyData]);
+    }, [hourlyData, hideBrowsers, categoryMap]);
 
     // console.log('[Charts] Activity Profile Data:', data);
 
@@ -87,6 +94,16 @@ export default function ActivityProfile() {
         return null;
     };
 
+    const CustomXAxisTick = ({ x, y, payload }: any) => {
+        return (
+            <g transform={`translate(${x},${y})`}>
+                <text x={0} y={0} dy={16} textAnchor="middle" className="text-[10px] fill-muted-foreground">
+                    {payload.value}
+                </text>
+            </g>
+        );
+    };
+
     return (
         <Card className="bg-card border-border shadow-sm flex flex-col">
             <CardHeader className="pb-2">
@@ -108,10 +125,10 @@ export default function ActivityProfile() {
                         }}
                         className="cursor-pointer"
                     >
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.5} />
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" opacity={0.5} />
                         <XAxis
                             dataKey="label"
-                            tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+                            tick={<CustomXAxisTick />}
                             axisLine={false}
                             tickLine={false}
                             interval={3} // Show every 3rd or 4th label
@@ -120,7 +137,7 @@ export default function ActivityProfile() {
                             hide // Hide Y axis labels to keep clean, or show minimal?
                         // unit="m"
                         />
-                        <Tooltip content={<CustomTooltip />} cursor={{ fill: 'hsl(var(--accent))', opacity: 0.2 }} />
+                        <Tooltip content={<CustomTooltip />} cursor={{ fill: 'var(--accent)', opacity: 0.2 }} />
                         <Legend verticalAlign="top" align="right" height={36} iconSize={8} formatter={(val) => <span className="capitalize text-xs text-muted-foreground">{val}</span>} />
 
                         <Bar dataKey="productive" stackId="a" fill={COLORS.productive} radius={[0, 0, 0, 0]} />

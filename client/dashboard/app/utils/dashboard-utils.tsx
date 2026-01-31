@@ -6,6 +6,7 @@ export interface StatItem {
     totalTimeMs: number;
     category: 'productive' | 'distracting' | 'neutral' | 'uncategorized';
     platforms?: string[];
+    autoSuggested?: boolean;
     timelines: Array<{
         deviceId: string;
         startTime: string;
@@ -18,6 +19,21 @@ export interface StatsResponse {
     data: {
         hourly: Record<number, StatItem[]>;
         daily: StatItem[];
+        topApps?: StatItem[];
+        categoryDistribution?: Array<{ name: string; value: number }>;
+        activityProfile?: Array<{
+            hour: number;
+            label: string;
+            productive: number;
+            distracting: number;
+            neutral: number;
+            uncategorized: number;
+        }>;
+        summary?: {
+            totalTimeMs: number;
+            productiveMs: number;
+            productivityScore: number;
+        };
     };
 }
 

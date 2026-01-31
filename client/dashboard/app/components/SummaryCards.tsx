@@ -1,4 +1,3 @@
-import { motion } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
 import { Clock, Trophy, Activity } from 'lucide-react';
 import { RadialProgress } from './charts/RadialProgress';
@@ -14,11 +13,6 @@ interface SummaryCardsProps {
     productivityScore: number;
     productiveMs: number;
 }
-
-const item = {
-    hidden: { opacity: 0, y: 20 },
-    show: { opacity: 1, y: 0 }
-};
 
 const SummaryCards = memo(function SummaryCards({
     loading,
@@ -49,8 +43,8 @@ const SummaryCards = memo(function SummaryCards({
     return (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Total Focus Card */}
-            <motion.div variants={item}>
-                <Card className="bg-card border-border backdrop-blur-md shadow-sm hover:bg-accent/50 transition-colors relative overflow-hidden group">
+            <div>
+                <Card className="bg-card h-52 justify-center border-border backdrop-blur-md shadow-sm hover:bg-accent/50 transition-colors relative overflow-hidden group">
                     <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
                         <Clock className="w-24 h-24 text-cyan-500" />
                     </div>
@@ -69,11 +63,11 @@ const SummaryCards = memo(function SummaryCards({
                         </div>
                     </CardContent>
                 </Card>
-            </motion.div>
+            </div>
 
             {/* Top Application Card */}
-            <motion.div variants={item}>
-                <Card className="bg-card border-border backdrop-blur-md shadow-sm hover:bg-accent/50 transition-colors relative overflow-hidden group">
+            <div>
+                <Card className="bg-card h-52 justify-center border-border backdrop-blur-md shadow-sm hover:bg-accent/50 transition-colors relative overflow-hidden group">
                     <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
                         <Trophy className="w-24 h-24 text-purple-500" />
                     </div>
@@ -108,11 +102,11 @@ const SummaryCards = memo(function SummaryCards({
                         </div>
                     </CardContent>
                 </Card>
-            </motion.div>
+            </div>
 
             {/* Productivity Score Card */}
-            <motion.div variants={item}>
-                <Card className="bg-card border-border backdrop-blur-md shadow-sm hover:bg-accent/50 transition-colors relative overflow-hidden group">
+            <div>
+                <Card className="bg-card h-52 justify-center border-border backdrop-blur-md shadow-sm hover:bg-accent/50 transition-colors relative overflow-hidden group">
                     <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                     <CardContent className="p-6 flex items-center justify-between">
                         <div>
@@ -138,7 +132,7 @@ const SummaryCards = memo(function SummaryCards({
                         </div>
                     </CardContent>
                 </Card>
-            </motion.div>
+            </div>
         </div>
     );
 });

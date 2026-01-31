@@ -1,4 +1,3 @@
-import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, Settings, LogOut } from 'lucide-react';
 import Link from 'next/link';
@@ -40,13 +39,11 @@ const DashboardHeader = memo(function DashboardHeader() {
     return (
         <header className="flex items-center justify-between pb-6 border-b border-border">
             <div>
-                <motion.h1
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
+                <h1
                     className="text-4xl font-bold bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 bg-clip-text text-transparent"
                 >
                     Time Tracker
-                </motion.h1>
+                </h1>
                 <p className="text-muted-foreground mt-2 text-sm tracking-wide uppercase font-medium">Daily Overview</p>
             </div>
 
@@ -61,12 +58,11 @@ const DashboardHeader = memo(function DashboardHeader() {
                     className="relative w-10 h-10 rounded-xl bg-background hover:bg-accent border border-border hover:border-zinc-500 dark:hover:border-zinc-700 transition-colors"
                     title="Refresh Data"
                 >
-                    <motion.div
-                        animate={refreshing ? { rotate: 360 } : {}}
-                        transition={{ duration: 1, repeat: refreshing ? Infinity : 0, ease: 'linear' }}
+                    <div
+                        className={refreshing ? "animate-spin" : ""}
                     >
                         <RefreshCw className="w-4 h-4 text-muted-foreground group-hover:text-foreground" />
-                    </motion.div>
+                    </div>
                 </Button>
 
                 <Button

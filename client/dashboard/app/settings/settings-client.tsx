@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { authClient } from '@/lib/auth-client';
 import { ArrowLeft, Plus, Trash2, Key, Copy, Check } from 'lucide-react';
-import { motion } from 'framer-motion';
+
 
 interface ApiKey {
     id: string;
@@ -30,7 +30,8 @@ export default function SettingsClient() {
 
     const fetchKeys = async () => {
         try {
-            const res = await fetch(`/api/keys`, { credentials: 'include' });
+            const baseUrl = process.env.NEXT_PUBLIC_SERVER_URL || '';
+            const res = await fetch(`${baseUrl}/api/keys`, { credentials: 'include' });
 
             if (res.status === 401) {
                 await authClient.signOut();
@@ -51,7 +52,8 @@ export default function SettingsClient() {
         e.preventDefault();
         setCreating(true);
         try {
-            const res = await fetch(`/api/keys`, {
+            const baseUrl = process.env.NEXT_PUBLIC_SERVER_URL || '';
+            const res = await fetch(`${baseUrl}/api/keys`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ label: newLabel || 'My Device' }),
@@ -78,7 +80,8 @@ export default function SettingsClient() {
 
     const deleteKey = async (id: string) => {
         if (!confirm('Are you sure? This device will stop syncing.')) return;
-        const res = await fetch(`/api/keys/${id}`, { method: 'DELETE', credentials: 'include' });
+        const baseUrl = process.env.NEXT_PUBLIC_SERVER_URL || '';
+        const res = await fetch(`${baseUrl}/api/keys/${id}`, { method: 'DELETE', credentials: 'include' });
 
         if (res.status === 401) {
             await authClient.signOut();
@@ -135,9 +138,7 @@ export default function SettingsClient() {
                     </form>
 
                     {newKey && (
-                        <motion.div
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: 'auto', opacity: 1 }}
+                        <div
                             className="mb-8 bg-primary/10 border border-primary/20 rounded-lg p-4"
                         >
                             <p className="text-primary text-sm font-medium mb-2">New API Key Generated:</p>
@@ -152,7 +153,7 @@ export default function SettingsClient() {
                                 <br />
                                 Add it to your <code className="text-foreground bg-muted px-1 rounded">config.json</code> as <code className="text-foreground bg-muted px-1 rounded">"apiKey": "..."</code>
                             </p>
-                        </motion.div>
+                        </div>
                     )}
 
                     <div className="space-y-3">

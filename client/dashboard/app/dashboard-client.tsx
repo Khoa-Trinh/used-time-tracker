@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { authClient } from '@/lib/auth-client';
 import { AlertCircle } from 'lucide-react';
-import { motion } from 'framer-motion';
 import dynamic from 'next/dynamic';
 import { useShallow } from 'zustand/react/shallow';
 
@@ -14,7 +13,9 @@ import HourlyTimeline from './components/charts/HourlyTimeline';
 import TimelineRow from './components/TimelineRow';
 import { IGNORED_APPS, StatItem } from './utils/dashboard-utils';
 import { useDashboardStore } from './store/dashboard-store';
+import { useCategoryStore } from './store/category-store';
 import { preloadFavicons } from '@/lib/favicon-cache';
+import { Toaster } from '@/components/ui/sonner';
 
 // Keep TopAppsList lazy as it's often off-screen
 const TopAppsList = dynamic(() => import('./components/charts/TopAppsList'), {
@@ -31,44 +32,24 @@ const DashboardCharts = dynamic(() => import('./components/DashboardCharts'), {
   ssr: false
 });
 
-interface DashboardClientProps {
-  initialData?: {
-    hourly: Record<number, StatItem[]>;
-    daily: StatItem[];
-  } | null;
-}
-
-export default function DashboardClient({ initialData }: DashboardClientProps) {
+export default function DashboardClient() {
   const router = useRouter();
 
-  // Hydrate store from server data immediately (before render if possible)
-  const initialized = useRef(false);
-  if (!initialized.current && initialData) {
-    useDashboardStore.setState({
-      hourlyData: initialData.hourly,
-      dailyStats: initialData.daily,
-      loading: false,
-      error: null
-    });
-    initialized.current = true;
-  }
-
-  // Optimize selectors: Only subscribe to data we actually use here.
-  // Crucially, we DO NOT subscribe to 'selectedHour' or 'hourlyData' here,
-  // so hour changes don't re-render the whole dashboard layout.
   const {
     dailyStats: rawDailyStats,
     loading,
     error,
     hideBrowsers,
-    fetchStats
+    fetchStats,
   } = useDashboardStore(useShallow(state => ({
     dailyStats: state.dailyStats,
     loading: state.loading,
     error: state.error,
     hideBrowsers: state.hideBrowsers,
-    fetchStats: state.fetchStats
+    fetchStats: state.fetchStats,
   })));
+
+  const categoryMap = useCategoryStore(state => state.categoryMap);
 
   useEffect(() => {
     fetchStats(() => {
@@ -79,6 +60,8 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
 
   // Filter Daily Stats (Client-Side Preference)
   const dailyStats = useMemo(() => {
+    if (!rawDailyStats) return [];
+
     let result = rawDailyStats;
     if (hideBrowsers) {
       result = result.filter(item => !IGNORED_APPS.some(ignored => item.appName.toLowerCase().includes(ignored.toLowerCase())));
@@ -86,14 +69,34 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
     return result;
   }, [rawDailyStats, hideBrowsers]);
 
-  // Calculate Totals & Productivity
-  const { totalTimeMs, productiveMs, productivityScore, topApp } = useMemo(() => {
-    const total = dailyStats.reduce((acc, curr) => acc + curr.totalTimeMs, 0);
-    const productive = dailyStats.filter(a => a.category === 'productive').reduce((acc, curr) => acc + curr.totalTimeMs, 0);
+  // Calculate Totals & Productivity (Hydrated with live categories)
+  const { totalTimeMs, productiveMs, productivityScore, topApp, hydratedStats } = useMemo(() => {
+    // Create a new array with updated categories for calculations and charts
+    const hydrated = dailyStats.map(app => {
+      const liveCategory = categoryMap[app.appId];
+      if (liveCategory && (liveCategory.category !== app.category || liveCategory.autoSuggested !== app.autoSuggested)) {
+        return {
+          ...app,
+          category: liveCategory.category as any,
+          autoSuggested: liveCategory.autoSuggested
+        };
+      }
+      return app;
+    });
+
+    const total = hydrated.reduce((acc, curr) => acc + curr.totalTimeMs, 0);
+    const productive = hydrated.filter(a => a.category === 'productive').reduce((acc, curr) => acc + curr.totalTimeMs, 0);
     const score = total > 0 ? Math.round((productive / total) * 100) : 0;
-    const top = dailyStats.length > 0 ? dailyStats[0] : null;
-    return { totalTimeMs: total, productiveMs: productive, productivityScore: score, topApp: top };
-  }, [dailyStats]);
+    const top = hydrated.length > 0 ? hydrated[0] : null; // Top app usually effectively based on time, so order implies top
+
+    return {
+      totalTimeMs: total,
+      productiveMs: productive,
+      productivityScore: score,
+      topApp: top,
+      hydratedStats: hydrated
+    };
+  }, [dailyStats, categoryMap]);
 
   // Preload favicons for all apps with Browser Cache API
   useEffect(() => {
@@ -113,22 +116,11 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
     </div>
   );
 
-  const container = {
-    hidden: { opacity: 0 },
-    show: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1
-      }
-    }
-  };
-
   return (
     <div className="min-h-screen bg-background text-foreground p-8 font-sans selection:bg-primary/30">
-      <motion.div
+      <Toaster />
+      <div
         className="max-w-[95%] mx-auto space-y-8"
-        variants={container}
-        animate="show"
       >
         <DashboardHeader />
 
@@ -142,11 +134,13 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
 
         <HourlyTimeline />
 
+        {/* Pass filtered (stale category) stats to avoid re-renders. Rows handle updates via hook. */}
         <TopAppsList loading={loading} dailyStats={dailyStats} />
 
-        <DashboardCharts />
+        {/* Pass hydrated stats to charts for correct categorization */}
+        <DashboardCharts dailyStats={hydratedStats} />
 
-      </motion.div>
+      </div>
     </div>
   );
 }

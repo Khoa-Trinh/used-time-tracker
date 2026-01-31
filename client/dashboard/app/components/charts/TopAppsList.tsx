@@ -1,20 +1,63 @@
-import { motion } from 'framer-motion';
 import { Laptop, Activity } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { formatTime, getPlatformIcon, StatItem } from '../../utils/dashboard-utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AppIcon } from '@/components/AppIcon';
 import { memo } from 'react';
+import { useAppCategory } from '../../store/category-store';
 
 interface TopAppsListProps {
     loading: boolean;
     dailyStats: StatItem[];
 }
 
-const item = {
-    hidden: { opacity: 0, y: 20 },
-    show: { opacity: 1, y: 0 }
-};
+const TopAppRow = memo(function TopAppRow({ app, maxTime }: { app: StatItem, maxTime: number, index: number }) {
+    const { category } = useAppCategory(app.appId, app.category, app.autoSuggested);
+    const percentage = (app.totalTimeMs / maxTime) * 100;
+
+    const isProductive = category === 'productive';
+    const isDistracting = category === 'distracting';
+
+    const progressColor = isProductive
+        ? 'bg-gradient-to-r from-emerald-500 to-emerald-400'
+        : isDistracting
+            ? 'bg-gradient-to-r from-red-500 to-red-400'
+            : 'bg-gradient-to-r from-blue-500 to-cyan-400';
+
+    return (
+        <div
+            className="group flex items-center justify-between p-3 rounded-xl hover:bg-accent border border-transparent hover:border-border transition-all"
+        >
+            <div className="flex items-center gap-4 min-w-0">
+                <AppIcon
+                    appName={app.appName}
+                    platform={app.platforms?.includes('web') ? 'web' : 'windows'}
+                    size="md"
+                />
+
+                <div className="min-w-0">
+                    <h4 className="font-medium text-card-foreground truncate pr-4">{app.appName}</h4>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                        {getPlatformIcon(app.platforms)}
+                        <span className="capitalize">{category}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div className="flex flex-col items-end gap-1.5 shrink-0">
+                <span className="font-mono text-sm font-medium text-foreground">
+                    {formatTime(app.totalTimeMs)}
+                </span>
+                <div className="w-32 h-1.5 bg-muted rounded-full overflow-hidden">
+                    <div
+                        style={{ width: `${percentage}%` }}
+                        className={`h-full rounded-full ${progressColor}`}
+                    />
+                </div>
+            </div>
+        </div>
+    );
+});
 
 const TopAppsList = memo(function TopAppsList({ loading, dailyStats }: TopAppsListProps) {
     if (loading) {
@@ -46,8 +89,7 @@ const TopAppsList = memo(function TopAppsList({ loading, dailyStats }: TopAppsLi
     }
 
     return (
-        <motion.div
-            variants={item}
+        <div
             className="bg-card border border-border p-8 rounded-3xl backdrop-blur-xl shadow-2xl relative overflow-hidden flex flex-col"
         >
             {/* Background decoration */}
@@ -61,56 +103,14 @@ const TopAppsList = memo(function TopAppsList({ loading, dailyStats }: TopAppsLi
             {dailyStats.length > 0 ? (
                 <ScrollArea className="h-[500px] w-full pr-4">
                     <div className="space-y-3">
-                        {dailyStats.slice(0, 10).map((app, index) => {
-                            const maxTime = dailyStats[0]?.totalTimeMs || 1;
-                            const percentage = (app.totalTimeMs / maxTime) * 100;
-
-                            const isProductive = app.category === 'productive';
-                            const isDistracting = app.category === 'distracting';
-
-                            const progressColor = isProductive
-                                ? 'bg-gradient-to-r from-emerald-500 to-emerald-400'
-                                : isDistracting
-                                    ? 'bg-gradient-to-r from-red-500 to-red-400'
-                                    : 'bg-gradient-to-r from-blue-500 to-cyan-400';
-
-                            return (
-                                <div
-                                    key={app.appId}
-                                    className="group flex items-center justify-between p-3 rounded-xl hover:bg-accent border border-transparent hover:border-border transition-all"
-                                >
-                                    <div className="flex items-center gap-4 min-w-0">
-                                        <AppIcon
-                                            appName={app.appName}
-                                            platform={app.platforms?.includes('web') ? 'web' : 'windows'}
-                                            size="md"
-                                        />
-
-                                        <div className="min-w-0">
-                                            <h4 className="font-medium text-card-foreground truncate pr-4">{app.appName}</h4>
-                                            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-                                                {getPlatformIcon(app.platforms)}
-                                                <span className="capitalize">{app.category}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex flex-col items-end gap-1.5 shrink-0">
-                                        <span className="font-mono text-sm font-medium text-foreground">
-                                            {formatTime(app.totalTimeMs)}
-                                        </span>
-                                        <div className="w-32 h-1.5 bg-muted rounded-full overflow-hidden">
-                                            <motion.div
-                                                initial={{ width: 0 }}
-                                                animate={{ width: `${percentage}%` }}
-                                                transition={{ duration: 1, ease: "easeOut", delay: index * 0.1 }}
-                                                className={`h-full rounded-full ${progressColor}`}
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-                            );
-                        })}
+                        {dailyStats.slice(0, 10).map((app, index) => (
+                            <TopAppRow
+                                key={app.appId}
+                                app={app}
+                                maxTime={dailyStats[0]?.totalTimeMs || 1}
+                                index={index}
+                            />
+                        ))}
                     </div>
                 </ScrollArea>
             ) : (
@@ -119,7 +119,7 @@ const TopAppsList = memo(function TopAppsList({ loading, dailyStats }: TopAppsLi
                     <p>No activity found.</p>
                 </div>
             )}
-        </motion.div>
+        </div>
     );
 });
 

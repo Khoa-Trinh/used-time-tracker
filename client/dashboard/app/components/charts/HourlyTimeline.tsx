@@ -1,4 +1,3 @@
-import { motion } from 'framer-motion';
 import { Activity, Clock } from 'lucide-react';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { IGNORED_APPS } from '../../utils/dashboard-utils';
@@ -8,29 +7,24 @@ import { memo, useMemo } from 'react';
 import { useDashboardStore } from '../../store/dashboard-store';
 import { useShallow } from 'zustand/react/shallow';
 
-const item = {
-    hidden: { opacity: 0, y: 20 },
-    show: { opacity: 1, y: 0 }
-};
-
 const HourlyTimeline = memo(function HourlyTimeline() {
     const {
         loading,
         selectedHour,
         setSelectedHour,
-        updateCategory,
         hourlyData,
         hideBrowsers
     } = useDashboardStore(useShallow(state => ({
         loading: state.loading,
         selectedHour: state.selectedHour,
         setSelectedHour: state.setSelectedHour,
-        updateCategory: state.updateCategory,
         hourlyData: state.hourlyData,
         hideBrowsers: state.hideBrowsers
     })));
 
     const currentHourStats = useMemo(() => {
+        if (!hourlyData) return [];
+
         let stats = hourlyData[selectedHour] || [];
         if (hideBrowsers) {
             stats = stats.filter(item => !IGNORED_APPS.some(ignored => item.appName.toLowerCase().includes(ignored.toLowerCase())));
@@ -58,8 +52,7 @@ const HourlyTimeline = memo(function HourlyTimeline() {
     }
 
     return (
-        <motion.div
-            variants={item}
+        <div
             className="bg-card border border-border p-8 rounded-3xl backdrop-blur-xl shadow-2xl relative overflow-hidden flex flex-col max-h-[800px]"
         >
             <h2 className="text-xl font-semibold mb-6 flex items-center gap-2 shrink-0">
@@ -119,16 +112,11 @@ const HourlyTimeline = memo(function HourlyTimeline() {
                         {/* Apps Timeline */}
                         <div
                             className="space-y-1 relative z-10"
-                            style={{
-                                contentVisibility: 'auto',
-                                containIntrinsicSize: 'auto 500px' // Estimate height to preventing scroll jumping
-                            }}
                         >
                             {currentHourStats.length > 0 ? currentHourStats.map((app, idx) => (
                                 <TimelineRow
                                     key={app.appId || idx}
                                     app={app}
-                                    updateCategory={updateCategory}
                                     selectedHour={selectedHour}
                                 />
                             )) : (
@@ -167,7 +155,7 @@ const HourlyTimeline = memo(function HourlyTimeline() {
                     <ScrollBar orientation="horizontal" className="h-2.5" />
                 </ScrollArea>
             </div>
-        </motion.div >
+        </div >
     );
 });
 

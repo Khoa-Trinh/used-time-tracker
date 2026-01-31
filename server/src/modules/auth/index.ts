@@ -1,7 +1,8 @@
+
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { db } from "./db";
-import { user, session, account, verification } from "./db/schema";
+import { db } from "../../db";
+import { user, session, account, verification } from "../../db/schema";
 
 export const auth = betterAuth({
     database: drizzleAdapter(db, {
@@ -18,7 +19,7 @@ export const auth = betterAuth({
     },
     trustedOrigins: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : [],
     advanced: {
-        cookiePrefix: "used-time-tracker",
+        cookiePrefix: process.env.NODE_ENV === "production" ? "used-time-tracker" : undefined,
     },
     session: {
         cookieCache: {

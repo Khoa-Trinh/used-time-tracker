@@ -4,7 +4,8 @@ import LoginClient from './login-client';
 
 export default async function LoginPage() {
     const cookieStore = await cookies();
-    const token = cookieStore.get('__Secure-used-time-tracker.session_token');
+    // Check for production cookie first, then fall back to default dev cookie
+    const token = cookieStore.get('__Secure-used-time-tracker.session_token') || cookieStore.get('better-auth.session_token');
     const authMode = process.env.NEXT_PUBLIC_AUTH_MODE || 'local';
 
     // If we are in hosted mode AND have a token, redirect to home

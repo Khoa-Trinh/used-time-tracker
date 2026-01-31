@@ -14,11 +14,16 @@ const COLORS = {
     uncategorized: '#71717a' // zinc-500
 };
 
-export default function CategoryDistribution() {
-    const dailyStats = useDashboardStore(state => state.dailyStats);
+interface CategoryDistributionProps {
+    dailyStats: StatItem[];
+}
+
+export default function CategoryDistribution({ dailyStats }: CategoryDistributionProps) {
     const hideBrowsers = useDashboardStore(state => state.hideBrowsers);
 
     const data = useMemo(() => {
+        if (!dailyStats) return [];
+
         let stats = dailyStats;
         if (hideBrowsers) {
             stats = stats.filter(item => !IGNORED_APPS.some(ignored => item.appName.toLowerCase().includes(ignored.toLowerCase())));
@@ -41,7 +46,7 @@ export default function CategoryDistribution() {
         return Object.entries(distribution)
             .map(([name, value]) => ({ name, value }))
             .filter(item => item.value > 0);
-    }, [dailyStats]);
+    }, [dailyStats, hideBrowsers]);
 
     // console.log('[Charts] Category Data:', data);
 

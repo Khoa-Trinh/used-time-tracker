@@ -279,7 +279,7 @@ async fn main() {
                 
                 // If shutting down, save even small durations. Otherwise, keep 1s threshold.
                 if duration.num_seconds() > 0 {
-// println!("Logged: {} ({}s)", prev_app, duration.num_seconds());
+println!("Logged: {} ({}s)", prev_app, duration.num_seconds());
                         
                     let payload = SessionPayload {
                         device_id: device_id.clone(),
@@ -301,8 +301,12 @@ async fn main() {
                             req = req.header("Authorization", format!("Bearer {}", key));
                         }
                         match req.json(&payload).send().await {
-                            Ok(res) => if !res.status().is_success() { /* println!("Error: {}", res.status()); */ },
-                            Err(_e) => { /* println!("Network error: {}", e) */ },
+                            Ok(res) => if !res.status().is_success() { 
+                                println!("Error: {}", res.status()); 
+                            },
+                            Err(e) => {
+                                  println!("Network error: {}", e) 
+                                },
                         }
                     };
 
@@ -321,7 +325,7 @@ async fn main() {
             // Start tracking new app
             current_app = Some(new_app_name.clone());
             start_time = Some(now);
-// println!("Switched to: {}", new_app_name);
+println!("Switched to: {}", new_app_name);
         }
     }
 // println!("Goodbye!");

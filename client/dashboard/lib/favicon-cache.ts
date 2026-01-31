@@ -31,6 +31,7 @@ export async function getCachedFaviconUrl(
 
     // Check in-memory cache first
     if (faviconCache.has(cacheKey)) {
+        console.log(`[Favicon] In-memory cache hit: ${appName}`);
         return faviconCache.get(cacheKey)!;
     }
 
@@ -46,17 +47,21 @@ export async function getCachedFaviconUrl(
             const cache = await caches.open('favicon-cache-v1');
             const response = await cache.match(url);
 
-            if (!response) {
+            if (response) {
+                console.log(`[Favicon] Browser cache hit: ${appName}`);
+            } else {
+                console.log(`[Favicon] Network fetch: ${appName}`);
                 // Not in cache, fetch and cache it
+                // Fire and forget - completely ignore errors to prevent console noise
                 fetch(url, {
                     mode: 'no-cors',
-                    cache: 'force-cache' // Use browser HTTP cache
+                    cache: 'force-cache'
                 }).then(res => {
                     if (res.ok || res.type === 'opaque') {
                         cache.put(url, res.clone());
                     }
                 }).catch(() => {
-                    // Silently fail - fallback to direct fetch
+                    // Sshh... it's okay. No favicon? No problem.
                 });
             }
         } catch (e) {
@@ -124,10 +129,11 @@ function getFaviconUrl(appName: string, platform: 'web' | 'windows' | 'macos' | 
         // Extract domain if it's a full URL
         try {
             const domain = new URL(appName.startsWith('http') ? appName : `https://${appName}`).hostname;
-            return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=64`;
+            // Use DuckDuckGo icons API - more reliable than Google
+            return `https://icons.duckduckgo.com/ip3/${encodeURIComponent(domain)}.ico`;
         } catch {
             // If parsing fails, use as-is
-            return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(appName)}&sz=64`;
+            return `https://icons.duckduckgo.com/ip3/${encodeURIComponent(appName)}.ico`;
         }
     }
 
@@ -137,15 +143,17 @@ function getFaviconUrl(appName: string, platform: 'web' | 'windows' | 'macos' | 
         'visual studio code': 'code.visualstudio.com',
         'vscode': 'code.visualstudio.com',
         'vs code': 'code.visualstudio.com',
-        'pycharm': 'jetbrains.com/pycharm',
-        'intellij idea': 'jetbrains.com/idea',
-        'webstorm': 'jetbrains.com/webstorm',
+        'pycharm': 'jetbrains.com',
+        'intellij idea': 'jetbrains.com',
+        'webstorm': 'jetbrains.com',
         'android studio': 'developer.android.com',
+        'antigravity': 'google.com', // Gemini/AI assistant
 
         // Communication
         'slack': 'slack.com',
         'discord': 'discord.com',
         'microsoft teams': 'teams.microsoft.com',
+        'teams': 'teams.microsoft.com',
         'zoom': 'zoom.us',
         'skype': 'skype.com',
 
@@ -157,15 +165,16 @@ function getFaviconUrl(appName: string, platform: 'web' | 'windows' | 'macos' | 
         'trello': 'trello.com',
 
         // Browsers
-        'google chrome': 'google.com/chrome',
-        'chrome': 'google.com/chrome',
-        'firefox': 'mozilla.org/firefox',
-        'microsoft edge': 'microsoft.com/edge',
-        'edge': 'microsoft.com/edge',
+        'google chrome': 'google.com',
+        'chrome': 'google.com',
+        'firefox': 'mozilla.org',
+        'microsoft edge': 'microsoft.com',
+        'edge': 'microsoft.com',
         'brave': 'brave.com',
         'opera': 'opera.com',
-        'safari': 'apple.com/safari',
+        'safari': 'apple.com',
         'arc': 'arc.net',
+        'vivaldi': 'vivaldi.com',
 
         // Entertainment
         'spotify': 'spotify.com',
@@ -173,11 +182,12 @@ function getFaviconUrl(appName: string, platform: 'web' | 'windows' | 'macos' | 
         'epic games': 'epicgames.com',
 
         // Windows System Apps
-        'explorer': 'microsoft.com/windows',
-        'notepad': 'microsoft.com/windows',
-        'powershell': 'microsoft.com/powershell',
-        'cmd': 'microsoft.com/windows',
-        'terminal': 'microsoft.com/windows',
+        'explorer': 'microsoft.com',
+        'windows explorer': 'microsoft.com',
+        'notepad': 'microsoft.com',
+        'powershell': 'microsoft.com',
+        'cmd': 'microsoft.com',
+        'terminal': 'microsoft.com',
 
         // macOS System Apps
         'finder': 'apple.com',
@@ -187,11 +197,11 @@ function getFaviconUrl(appName: string, platform: 'web' | 'windows' | 'macos' | 
     const domain = appMappings[normalizedName];
 
     if (domain) {
-        return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=64`;
+        return `https://icons.duckduckgo.com/ip3/${encodeURIComponent(domain)}.ico`;
     }
 
     // Fallback: try using the app name as domain
     // Remove ".exe" and other extensions
     const cleanName = appName.replace(/\.(exe|app)$/i, '').toLowerCase();
-    return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(cleanName)}.com&sz=64`;
+    return `https://icons.duckduckgo.com/ip3/${encodeURIComponent(cleanName)}.com.ico`;
 }

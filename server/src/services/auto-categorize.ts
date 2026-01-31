@@ -12,22 +12,23 @@ export function suggestCategory(appName: string, url?: string, userId?: string):
     const productiveApps = [
         'visual studio code', 'vscode', 'code', 'vim', 'neovim', 'sublime',
         'intellij', 'pycharm', 'webstorm', 'android studio',
-        'github.com', 'gitlab.com', 'bitbucket.org', 'stackoverflow.com',
-        'chat.openai.com', 'claude.ai', 'gemini.google.com',
-        'notion.so', 'obsidian', 'evernote', 'onenote',
-        'slack', 'discord', 'teams', 'zoom', 'meet.google.com',
-        'gmail', 'outlook', 'mail.google.com',
-        'figma.com', 'canva.com', 'sketch',
-        'docs.google.com', 'office.com', 'excel', 'word', 'powerpoint',
-        'trello.com', 'asana.com', 'jira', 'linear.app',
+        'intellij', 'pycharm', 'webstorm', 'android studio',
+        'github', 'gitlab', 'bitbucket', 'stackoverflow',
+        'openai', 'chatgpt', 'claude', 'gemini',
+        'notion', 'obsidian', 'evernote', 'onenote',
+        'slack', 'discord', 'teams', 'zoom', 'meet.google',
+        'gmail', 'outlook',
+        'figma', 'canva', 'sketch',
+        'docs.google', 'office', 'excel', 'word', 'powerpoint',
+        'trello', 'asana', 'jira', 'linear',
         'terminal', 'cmd', 'powershell', 'iterm', 'warp',
     ];
 
     // Social Media & Entertainment (High confidence)
     const distractingApps = [
-        'facebook.com', 'instagram.com', 'twitter.com', 'x.com', 'tiktok.com',
-        'reddit.com', 'pinterest.com', 'snapchat',
-        'youtube.com', 'netflix.com', 'hulu.com', 'twitch.tv', 'spotify.com',
+        'facebook', 'instagram', 'twitter', 'x.com', 'tiktok',
+        'reddit', 'pinterest', 'snapchat',
+        'youtube', 'netflix', 'hulu', 'twitch', 'spotify',
         'steam', 'epic games', 'battle.net', 'league of legends', 'valorant',
         'whatsapp', 'telegram', 'wechat', 'line',
     ];
