@@ -52,14 +52,6 @@ export const useDashboardStore = create<DashboardState>()(
             setLastFetchTimestamp: (lastFetchTimestamp) => set({ lastFetchTimestamp }),
 
             fetchStats: async (onUnauthorized) => {
-                // ... (keep fetchStats implementation as is, it's long)
-                // Just referencing it to keep structure, but replace_file_content targets specific lines usually.
-                // Since I am replacing a huge chunk, I should be careful.
-                // Actually, I can target just the 'updateCategory' and 'suggestAppCategory' parts if I use multiple replacements or careful range.
-                // But the interface definition is at the top. I'll split this into two edits if needed, or one big one if I can match the context.
-                // Let's rely on the tool's ability to match.
-                // Wait, I can't put "keep implementation" comments in `ReplacementContent` for the tool. Use `read_file` content.
-                // I will target `updateCategory` implementation specifically.
                 const {
                     setLoading,
                     setRefreshing,
@@ -94,7 +86,34 @@ export const useDashboardStore = create<DashboardState>()(
                     const url = `${baseUrl}/api/stats?${params.toString()}`;
                     console.log('[DashboardStore] Fetching stats:', url, 'Since:', since);
 
-                    const res = await fetch(url, { credentials: 'include' });
+                    // Try to get session token to enable Authorization header (workaround for 3rd party cookie issues)
+                    const headers: HeadersInit = {};
+                    try {
+                        const session = await authClient.getSession();
+                        // @ts-ignore - better-auth types might not expose token directly on session object depending on version, 
+                        // but often it's in session.token or we can rely on cookies. 
+                        // However, the user specifically asked for Authorization header.
+                        // If authClient uses local storage, we might be able to grab it.
+                        // For now, let's try to add it if we can find it, otherwise rely on cookies.
+                        // Actually, better-auth usually stores in localStorage under 'better-auth.session_token' or similar if configured.
+                        // Let's check `authClient` capabilities. It doesn't seem to expose `getToken`.
+                        // We will implement a best-effort: check if session exists.
+                        if (session?.data?.session) {
+                            // If the token is available in the session object
+                            // @ts-ignore
+                            const token = session.data.session.token || session.data.token;
+                            if (token) {
+                                headers['Authorization'] = `Bearer ${token}`;
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('Failed to get session for header', e);
+                    }
+
+                    const res = await fetch(url, {
+                        credentials: 'include',
+                        headers
+                    });
 
                     if (res.status === 401) {
                         if (onUnauthorized) onUnauthorized();
