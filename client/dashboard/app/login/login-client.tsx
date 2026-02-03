@@ -65,7 +65,7 @@ export default function LoginClient() {
 
             <div className="w-full max-w-md bg-card border border-border rounded-xl p-8 shadow-2xl">
                 <div className="text-center mb-8">
-                    <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+                    <h1 className="text-2xl font-bold bg-linear-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
                         {isSignUp ? 'Create Account' : 'Welcome Back'}
                     </h1>
                     <p className="text-muted-foreground text-sm mt-2">
