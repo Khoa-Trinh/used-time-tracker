@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { authClient } from '@/lib/auth-client';
 import { useRouter } from 'next/navigation';
 import { Lock, Mail, Loader2, User } from 'lucide-react';
-import { ModeToggle } from '@/components/mode-toggle';
+import { ModeToggle } from '@/components/ModeToggle';
 
 export default function LoginClient() {
     const [isSignUp, setIsSignUp] = useState(false);
