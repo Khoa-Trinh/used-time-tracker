@@ -1,12 +1,12 @@
-import { drizzle } from 'drizzle-orm/bun-sql';
-import { SQL } from 'bun';
+import { drizzle } from 'drizzle-orm/node-postgres';
+import { Pool } from 'pg';
 import * as schema from './schema';
 
 const globalQueryClient = globalThis as unknown as {
-    postgres: SQL;
+    postgres: Pool;
 };
 
-const client = globalQueryClient.postgres || new SQL(process.env.DATABASE_URL!);
+const client = globalQueryClient.postgres || new Pool({ connectionString: process.env.DATABASE_URL! });
 
 if (process.env.NODE_ENV !== 'production') {
     globalQueryClient.postgres = client;
