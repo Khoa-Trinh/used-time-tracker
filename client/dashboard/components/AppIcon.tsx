@@ -49,9 +49,9 @@ export function AppIcon({ appName, platform = 'web', size = 'md', className = ''
     }
 
     const sizeMap = {
-        sm: 16,
-        md: 24,
-        lg: 32,
+        sm: 14,
+        md: 20,
+        lg: 28,
     };
 
     return (

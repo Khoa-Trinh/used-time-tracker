@@ -10,12 +10,13 @@ interface StatsQueryParams {
     since?: string;
     timeZone?: string;
     userId: string;
-    currentUser: any; // Ideally typed from User model
+    currentUser: any;
+    knownAppIds?: string[];
 }
 
 export abstract class AnalyticsService {
     static async getStats(params: StatsQueryParams) {
-        const { from, to, timeZone, groupBy, since, currentUser } = params;
+        const { from, to, timeZone, groupBy, since, currentUser, knownAppIds } = params;
 
         // Robust Timezone Handling
         let targetTimeZone = 'UTC';
@@ -52,6 +53,7 @@ export abstract class AnalyticsService {
             return {
                 success: true,
                 data: {
+                    apps: {},
                     hourly: {},
                     daily: []
                 }
@@ -78,26 +80,30 @@ export abstract class AnalyticsService {
             }
         });
 
-        // Helper Types
-        type TimelineSegment = {
-            start: number;
-            end: number;
-            deviceId: string;
-        };
-
-        type ProcessedApp = {
+        // Helper Types for normalization
+        type AppMetadata = {
             appId: string;
             appName: string;
-            totalTimeMs: number;
-            timelines: TimelineSegment[];
-            platforms: Set<string>;
             category: string;
             autoSuggested: boolean;
+            platforms: string[];
+        };
+
+        type HourlyItem = {
+            appId: string;
+            timelines: Array<{ startTime: string; endTime: string; deviceId: string }>;
+        };
+
+        type DailyItem = {
+            appId: string;
+            totalTimeMs: number;
         };
 
 
         if (groupBy === 'hour') {
-            const hourlyBuckets: Record<number, Map<string, ProcessedApp>> = {};
+            const hourlyBuckets: Record<number, Map<string, HourlyItem>> = {};
+            const dailyMap = new Map<string, number>(); // appId -> totalTimeMs
+            const appsMap = new Map<string, { meta: AppMetadata, platforms: Set<string> }>();
 
             // 2. Distribute Timelines into Hours
             for (const activity of activities) {
@@ -105,9 +111,27 @@ export abstract class AnalyticsService {
 
                 for (const usage of activity.appUsages) {
                     const app = usage.app as any;
-                    const appName = app.name;
                     const categoryValue = app.category || 'uncategorized';
+                    const appId = app.id;
 
+                    // Collect App Metadata
+                    if (!appsMap.has(appId)) {
+                        appsMap.set(appId, {
+                            meta: {
+                                appId,
+                                appName: app.name,
+                                category: categoryValue,
+                                autoSuggested: app.autoSuggested || false,
+                                platforms: []
+                            },
+                            platforms: new Set()
+                        });
+                    }
+                    const appEntry = appsMap.get(appId)!;
+                    if (platform) appEntry.platforms.add(platform);
+
+
+                    // Daily Aggregation (Total Time)
                     for (const t of usage.timelines) {
                         let current = t.startTime.getTime();
                         let end = t.endTime.getTime();
@@ -139,25 +163,21 @@ export abstract class AnalyticsService {
                                 if (!hourlyBuckets[hour]) hourlyBuckets[hour] = new Map();
                                 const map = hourlyBuckets[hour];
 
-                                if (!map.has(appName)) {
-                                    map.set(appName, {
-                                        appId: app.id,
-                                        appName,
-                                        totalTimeMs: 0,
-                                        timelines: [],
-                                        platforms: new Set(),
-                                        category: categoryValue,
-                                        autoSuggested: app.autoSuggested || false
+                                if (!map.has(appId)) {
+                                    map.set(appId, {
+                                        appId,
+                                        timelines: []
                                     });
                                 }
-                                const entry = map.get(appName)!;
-                                entry.totalTimeMs += segmentDuration;
+                                const entry = map.get(appId)!;
                                 entry.timelines.push({
-                                    start: current,
-                                    end: nextStep,
+                                    startTime: new Date(current).toISOString(),
+                                    endTime: new Date(nextStep).toISOString(),
                                     deviceId: activity.deviceId
                                 });
-                                if (platform) entry.platforms.add(platform);
+
+                                // Update Daily Total
+                                dailyMap.set(appId, (dailyMap.get(appId) || 0) + segmentDuration);
 
                                 current = nextStep;
                                 if (segmentDuration <= 0) break;
@@ -170,61 +190,43 @@ export abstract class AnalyticsService {
             }
 
             // 3. Final Format
-            const finalHourlyResult: Record<number, any[]> = {};
-            const dailyMap = new Map<string, any>();
 
-            // Iterate only populated hours
+            // Format Apps
+            // Format Apps
+            const appsResult: Record<string, AppMetadata> = {};
+            const knownSet = new Set(knownAppIds || []);
+
+            appsMap.forEach((val, key) => {
+                if (!knownSet.has(key)) {
+                    appsResult[key] = {
+                        ...val.meta,
+                        platforms: Array.from(val.platforms)
+                    };
+                }
+            });
+
+            // Format Hourly
+            const finalHourlyResult: Record<number, HourlyItem[]> = {};
             Object.keys(hourlyBuckets).forEach(hourKey => {
                 const hour = parseInt(hourKey);
                 const map = hourlyBuckets[hour];
-
                 if (!map) return;
 
-                const sortedApps = Array.from(map.values())
-                    .sort((a, b) => b.totalTimeMs - a.totalTimeMs)
-                    .map(a => {
-                        const platforms = Array.from(a.platforms);
-                        const processed = {
-                            ...a,
-                            platforms,
-                            timelines: a.timelines.map(t => ({
-                                deviceId: t.deviceId,
-                                startTime: new Date(t.start).toISOString(),
-                                endTime: new Date(t.end).toISOString()
-                            }))
-                        };
-
-                        // Aggregate into Daily
-                        if (!dailyMap.has(a.appName)) {
-                            dailyMap.set(a.appName, {
-                                appId: a.appId,
-                                appName: a.appName,
-                                totalTimeMs: 0,
-                                category: a.category || 'uncategorized',
-                                autoSuggested: a.autoSuggested,
-                                platforms: new Set<string>()
-                            });
-                        }
-                        const dailyEntry = dailyMap.get(a.appName);
-                        dailyEntry.totalTimeMs += a.totalTimeMs;
-                        platforms.forEach(p => dailyEntry.platforms.add(p));
-
-                        return processed;
-                    });
-
-                finalHourlyResult[hour] = sortedApps;
+                finalHourlyResult[hour] = Array.from(map.values());
             });
 
-            const dailyResult = Array.from(dailyMap.values())
-                .sort((a, b) => b.totalTimeMs - a.totalTimeMs)
-                .map(a => ({
-                    ...a,
-                    platforms: Array.from(a.platforms)
-                }));
+            // Format Daily
+            const dailyResult: DailyItem[] = [];
+            dailyMap.forEach((totalTimeMs, appId) => {
+                dailyResult.push({ appId, totalTimeMs });
+            });
+            // Sort daily by totalTimeMs descending
+            dailyResult.sort((a, b) => b.totalTimeMs - a.totalTimeMs);
 
             return {
                 success: true,
                 data: {
+                    apps: appsResult,
                     hourly: finalHourlyResult,
                     daily: dailyResult
                 }
@@ -233,6 +235,7 @@ export abstract class AnalyticsService {
             return {
                 success: true,
                 data: {
+                    apps: {},
                     hourly: {},
                     daily: []
                 }

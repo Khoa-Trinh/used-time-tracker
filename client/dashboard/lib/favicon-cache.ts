@@ -31,7 +31,7 @@ export async function getCachedFaviconUrl(
 
     // Check in-memory cache first
     if (faviconCache.has(cacheKey)) {
-        console.log(`[Favicon] In-memory cache hit: ${appName}`);
+        // console.log(`[Favicon] In-memory cache hit: ${appName}`);
         return faviconCache.get(cacheKey)!;
     }
 
@@ -48,9 +48,9 @@ export async function getCachedFaviconUrl(
             const response = await cache.match(url);
 
             if (response) {
-                console.log(`[Favicon] Browser cache hit: ${appName}`);
+                // console.log(`[Favicon] Browser cache hit: ${appName}`);
             } else {
-                console.log(`[Favicon] Network fetch: ${appName}`);
+                // console.log(`[Favicon] Network fetch: ${appName}`);
                 // Not in cache, fetch and cache it
                 // Fire and forget - completely ignore errors to prevent console noise
                 fetch(url, {
@@ -105,7 +105,7 @@ export async function clearFaviconCache(): Promise<void> {
         try {
             await caches.delete('favicon-cache-v1');
         } catch (e) {
-            console.warn('Failed to clear favicon cache:', e);
+            // console.warn('Failed to clear favicon cache:', e);
         }
     }
 }
