@@ -1,6 +1,6 @@
 import { memo } from 'react';
-import HeaderTitle from './header/HeaderTitle';
-import HeaderActions from './header/HeaderActions';
+import HeaderTitle from './HeaderTitle';
+import HeaderActions from './HeaderActions';
 
 const DashboardHeader = memo(function DashboardHeader() {
     return (

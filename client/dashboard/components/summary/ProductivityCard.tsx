@@ -3,7 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Activity } from 'lucide-react';
 import { formatTime } from '../../utils/dashboard-utils';
 import { Skeleton } from '@/components/ui/skeleton';
-import { RadialProgress } from '../RadialProgress';
+import { RadialProgress } from '@/components/ui/RadialProgress';
 
 interface ProductivityCardProps {
     loading?: boolean;

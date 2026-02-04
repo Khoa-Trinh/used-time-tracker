@@ -2,7 +2,8 @@ import { memo } from 'react';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, Settings, LogOut } from 'lucide-react';
 import Link from 'next/link';
-import { ModeToggle } from '@/components/ModeToggle';
+import { ModeToggle } from './ModeToggle';
+import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { authClient } from '@/lib/auth-client';
 import { useDashboardStats } from '@/hooks/use-dashboard-stats';
@@ -20,10 +21,19 @@ const HeaderActions = memo(function HeaderActions() {
     };
 
     const handleLogout = async () => {
-        await authClient.signOut();
-        queryClient.clear();
-        router.push('/login');
-        router.refresh();
+        toast.promise(authClient.signOut(), {
+            loading: 'Logging out...',
+            success: () => {
+                queryClient.clear();
+                router.push('/login');
+                router.refresh();
+                return 'Logged out successfully';
+            },
+            error: (err: any) => {
+                const status = err?.status ? ` [${err.status}]` : '';
+                return `Failed to logout${status}`;
+            }
+        });
     };
 
     return (

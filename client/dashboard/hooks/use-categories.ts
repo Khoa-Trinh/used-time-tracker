@@ -52,9 +52,13 @@ export function useCategoryMutations() {
 
             return { previousStats };
         },
-        onError: (err, variables, context) => {
+        onSuccess: () => {
+            toast.success('Category updated');
+        },
+        onError: (err: any, _, context) => {
+            const status = err?.status ? ` [${err.status}]` : '';
             console.error('Failed to update category:', err);
-            toast.error('Failed to update category');
+            toast.error(`Failed to update category${status}`);
             if (context?.previousStats) {
                 queryClient.setQueryData(queryKey, context.previousStats);
             }
@@ -86,8 +90,13 @@ export function useCategoryMutations() {
         onMutate: () => {
             toast.loading('Asking AI for suggestion...', { id: 'ai-suggest' });
         },
-        onError: (err) => {
+        onSuccess: () => {
+            toast.success('AI suggest updated!', { id: 'ai-suggest' });
+        },
+        onError: (err: any) => {
+            const status = err?.status ? ` [${err.status}]` : '';
             console.error('AI Suggestion failed:', err);
+            toast.error(`AI failed to suggest category${status}`, { id: 'ai-suggest' });
         }
     });
 

@@ -1,6 +1,17 @@
 import { useState, useEffect, memo } from 'react';
-import { Trash2, Smartphone, Laptop, Monitor } from 'lucide-react';
+import { Trash2, Smartphone, Laptop, Monitor, AlertTriangle } from 'lucide-react';
 import type { ApiKey } from '@/hooks/use-api-keys';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+    DialogClose,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 
 interface KeyItemProps {
     apiKey: ApiKey;
@@ -17,6 +28,7 @@ const getDeviceIcon = (label: string | null) => {
 
 export const KeyItem = memo(({ apiKey, onDelete, isDeleting }: KeyItemProps) => {
     const [formattedDate, setFormattedDate] = useState<string | null>(null);
+    const [isDialogOpen, setIsDialogOpen] = useState(false);
 
     useEffect(() => {
         if (apiKey.lastUsedAt) {
@@ -25,8 +37,8 @@ export const KeyItem = memo(({ apiKey, onDelete, isDeleting }: KeyItemProps) => 
     }, [apiKey.lastUsedAt]);
 
     const handleDelete = () => {
-        if (!confirm('Revoke this API Key? This will disconnect the device immediately.')) return;
         onDelete(apiKey.id);
+        setIsDialogOpen(false);
     };
 
     return (
@@ -48,14 +60,47 @@ export const KeyItem = memo(({ apiKey, onDelete, isDeleting }: KeyItemProps) => 
                 </div>
             </div>
 
-            <button
-                onClick={handleDelete}
-                disabled={isDeleting}
-                className="opacity-0 group-hover:opacity-100 p-2 text-zinc-500 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all disabled:opacity-50"
-                title="Revoke Key"
-            >
-                <Trash2 className="w-4 h-4" />
-            </button>
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <DialogTrigger
+                    render={
+                        <button
+                            disabled={isDeleting}
+                            className="opacity-0 group-hover:opacity-100 p-2 text-zinc-500 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all disabled:opacity-50"
+                            title="Revoke Key"
+                        >
+                            <Trash2 className="w-4 h-4" />
+                        </button>
+                    }
+                />
+                <DialogContent className="sm:max-w-[425px] bg-zinc-950! border-white/10!">
+                    <DialogHeader>
+                        <div className="mx-auto w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center mb-4">
+                            <AlertTriangle className="w-6 h-6 text-red-500" />
+                        </div>
+                        <DialogTitle className="text-center text-xl font-bold">Revoke API Key?</DialogTitle>
+                        <DialogDescription className="text-center text-zinc-400">
+                            This will immediately disconnect <span className="text-zinc-200 font-semibold">{apiKey.label || 'this device'}</span>. You will need to generate a new key to reconnect it.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="mt-6 flex gap-3">
+                        <DialogClose
+                            render={
+                                <Button variant="outline" className="flex-1 bg-transparent border-white/10 hover:bg-white/5 text-zinc-400">
+                                    Cancel
+                                </Button>
+                            }
+                        />
+                        <Button
+                            variant="destructive"
+                            onClick={handleDelete}
+                            disabled={isDeleting}
+                            className="flex-1 bg-red-600 hover:bg-red-700"
+                        >
+                            {isDeleting ? 'Revoking...' : 'Revoke Key'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 });

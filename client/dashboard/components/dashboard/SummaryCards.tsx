@@ -1,7 +1,7 @@
 import { memo, useMemo } from 'react';
-import { TotalFocusCard } from './summary/TotalFocusCard';
-import { TopAppCard } from './summary/TopAppCard';
-import { ProductivityCard } from './summary/ProductivityCard';
+import { TotalFocusCard } from '../summary/TotalFocusCard';
+import { TopAppCard } from '../summary/TopAppCard';
+import { ProductivityCard } from '../summary/ProductivityCard';
 import { useDashboardStats } from '@/hooks/use-dashboard-stats';
 
 const SummaryCards = memo(function SummaryCards() {

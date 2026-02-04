@@ -1,5 +1,5 @@
 import { Laptop, Activity } from 'lucide-react';
-import { StatItem } from '../utils/dashboard-utils';
+import { StatItem } from '../../utils/dashboard-utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { memo } from 'react';
 import TopAppRow from './TopAppRow';
@@ -64,7 +64,7 @@ const TopAppsList = memo(function TopAppsList() {
                 {dailyStats.length > 0 ? (
                     <div className="h-full w-full overflow-y-auto custom-scrollbar pr-2">
                         <div className="space-y-2 pr-2">
-                            {dailyStats.slice(0, 50).map((app: StatItem, index: number) => (                                                
+                            {dailyStats.slice(0, 50).map((app: StatItem, index: number) => (
                                 <TopAppRow
                                     key={app.appId}
                                     app={app}

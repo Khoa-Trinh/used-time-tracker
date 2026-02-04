@@ -3,23 +3,21 @@
 import { useState } from 'react';
 import { authClient } from '@/lib/auth-client';
 import { useRouter } from 'next/navigation';
-import { AlertCircle } from 'lucide-react';
 import { AuthHeader } from './AuthHeader';
 import { AuthForm } from './AuthForm';
 import { AuthToggle } from './AuthToggle';
 import { AuthFormValues } from '@/utils/schema';
 import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 
 export function AuthCard() {
     const [isSignUp, setIsSignUp] = useState(false);
     const [loading, setLoading] = useState(false);
-    const [authError, setAuthError] = useState<string | null>(null);
     const router = useRouter();
     const queryClient = useQueryClient();
 
     const handleAuth = async (data: AuthFormValues) => {
         setLoading(true);
-        setAuthError(null);
 
         try {
             if (isSignUp) {
@@ -29,12 +27,14 @@ export function AuthCard() {
                     name: data.name || '',
                 }, {
                     onSuccess: () => {
+                        toast.success('Account created! Welcome to Tick.');
                         queryClient.clear();
                         router.push('/');
                         router.refresh();
                     },
                     onError: (ctx) => {
-                        setAuthError(ctx.error.message);
+                        const status = (ctx.error as any)?.status ? ` [${(ctx.error as any).status}]` : '';
+                        toast.error(`${ctx.error.message || 'Failed to sign up'}${status}`);
                         setLoading(false);
                     }
                 });
@@ -44,18 +44,21 @@ export function AuthCard() {
                     password: data.password,
                 }, {
                     onSuccess: () => {
+                        toast.success('Logged in successfully');
                         queryClient.clear();
                         router.push('/');
                         router.refresh();
                     },
                     onError: (ctx) => {
-                        setAuthError(ctx.error.message);
+                        const status = (ctx.error as any)?.status ? ` [${(ctx.error as any).status}]` : '';
+                        toast.error(`${ctx.error.message || 'Invalid credentials'}${status}`);
                         setLoading(false);
                     }
                 });
             }
-        } catch (err) {
-            setAuthError('An unexpected error occurred');
+        } catch (err: any) {
+            const status = err?.status ? ` [${err.status}]` : '';
+            toast.error(`An unexpected error occurred${status}`);
             setLoading(false);
         }
     };
@@ -73,18 +76,10 @@ export function AuthCard() {
                 onSubmit={handleAuth}
             />
 
-            {authError && (
-                <div className="animate-in fade-in slide-in-from-top-2 duration-300 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs flex items-start gap-3 mt-5">
-                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                    <p className="leading-relaxed">{authError}</p>
-                </div>
-            )}
-
             <AuthToggle
                 isSignUp={isSignUp}
                 onToggle={() => {
                     setIsSignUp(!isSignUp);
-                    setAuthError(null);
                 }}
             />
         </div>

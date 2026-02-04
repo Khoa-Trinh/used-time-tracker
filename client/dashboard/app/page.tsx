@@ -1,6 +1,6 @@
 import DashboardClient from './dashboard-client';
-import { AuthCheck } from '@/components/AuthCheck';
-import { FaviconPreloader } from '@/components/FaviconPreloader';
+import { AuthCheck } from '@/components/auth/AuthCheck';
+import { FaviconPreloader } from '@/components/shared/FaviconPreloader';
 
 
 export default async function DashboardPage() {

@@ -1,6 +1,6 @@
 import { memo } from 'react';
-import TimelineSegment from '../TimelineSegment';
 import { StatItem } from '../../utils/dashboard-utils';
+import TimelineSegment from './TimelineSegment';
 
 interface TimelineTrackProps {
     timelines: StatItem['timelines'];

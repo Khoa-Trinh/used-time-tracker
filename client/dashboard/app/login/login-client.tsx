@@ -1,6 +1,6 @@
 'use client';
 
-import { ModeToggle } from '@/components/ModeToggle';
+import { ModeToggle } from '@/components/header/ModeToggle';
 import { Terminal, Cpu, Zap } from 'lucide-react';
 import Image from 'next/image';
 import { AuthCard } from '@/components/login/AuthCard';

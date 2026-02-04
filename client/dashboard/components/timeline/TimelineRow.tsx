@@ -1,8 +1,8 @@
 import { memo } from 'react';
-import { StatItem } from '../utils/dashboard-utils';
+import { StatItem } from '../../utils/dashboard-utils';
 import { useAppCategory } from '@/hooks/use-categories';
-import RowLabel from './timeline/RowLabel';
-import TimelineTrack from './timeline/TimelineTrack';
+import RowLabel from './RowLabel';
+import TimelineTrack from './TimelineTrack';
 
 interface TimelineRowProps {
     app: StatItem;

@@ -1,11 +1,13 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { client } from '@/lib/api-client';
 import { mergeApps, mergeAppStats, mergeHourlyData, shouldClearCache } from '@/utils/stats-merge';
 import { StatItem, StatsResponse } from '@/utils/dashboard-utils';
 import { useRouter } from 'next/navigation';
 import { authClient } from '@/lib/auth-client';
+import { toast } from 'sonner';
 
 export function useDashboardStats() {
     const timeZone = typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'UTC';
@@ -117,6 +119,21 @@ export function useDashboardStats() {
         retry: 1,
         placeholderData: (previousData: StatsResponse['data'] | undefined) => previousData,
     });
+
+    useEffect(() => {
+        if (query.isError && query.error) {
+            console.error('Failed to sync data:', query.error);
+            // Only toast if it's not a 401 (which is handled by redirect)
+            const err = query.error as any;
+            if (!err?.status || err.status !== 401) {
+                const status = err?.status ? ` [${err.status}]` : '';
+                toast.error(`Failed to sync latest data${status}`, {
+                    description: 'Check your connection if this persists.',
+                    id: 'stats-sync-error'
+                });
+            }
+        }
+    }, [query.isError, query.error]);
 
     const fallbackStats: StatsResponse['data'] = {
         apps: {},

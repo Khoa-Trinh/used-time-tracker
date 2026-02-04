@@ -1,6 +1,6 @@
 import { memo } from 'react';
-import { formatTime, StatItem } from '../utils/dashboard-utils';
-import { AppIcon } from '@/components/AppIcon';
+import { formatTime, StatItem } from '../../utils/dashboard-utils';
+import { AppIcon } from '@/components/shared/AppIcon';
 import { useAppCategory } from '@/hooks/use-categories';
 import { Globe, Monitor, Smartphone } from 'lucide-react';
 

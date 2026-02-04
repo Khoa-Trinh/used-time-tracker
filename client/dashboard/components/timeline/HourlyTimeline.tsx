@@ -1,14 +1,14 @@
 import { Activity, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
-import { IGNORED_APPS } from '../utils/dashboard-utils';
+import { IGNORED_APPS } from '../../utils/dashboard-utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { memo, useMemo, useRef, useCallback } from 'react';
-import { useDashboardStore } from '../store/dashboard-store';
+import { useDashboardStore } from '../../store/dashboard-store';
 import { useShallow } from 'zustand/react/shallow';
-import { StatItem } from '../utils/dashboard-utils';
+import { StatItem } from '../../utils/dashboard-utils';
 import { useDashboardStats } from '@/hooks/use-dashboard-stats';
-import RowLabel from './timeline/RowLabel';
-import TimelineTrack from './timeline/TimelineTrack';
-import HourSelector from './timeline/HourSelector';
+import RowLabel from './RowLabel';
+import TimelineTrack from './TimelineTrack';
+import HourSelector from './HourSelector';
 import { useAppCategory } from '@/hooks/use-categories';
 
 // Unified Row Component containing both the sticky app info and the timeline track

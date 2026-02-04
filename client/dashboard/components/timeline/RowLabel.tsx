@@ -1,8 +1,8 @@
 import { memo } from 'react';
 import { Sparkles } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { AppIcon } from '@/components/AppIcon';
-import AppSettingsMenu from '../AppSettingsMenu';
+import { AppIcon } from '@/components/shared/AppIcon';
+import AppSettingsMenu from '../dashboard/AppSettingsMenu';
 import { StatItem } from '../../utils/dashboard-utils';
 
 interface RowLabelProps {

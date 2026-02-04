@@ -3,7 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Trophy } from 'lucide-react';
 import { formatTime, StatItem } from '../../utils/dashboard-utils';
 import { Skeleton } from '@/components/ui/skeleton';
-import { AppIcon } from '@/components/AppIcon';
+import { AppIcon } from '@/components/shared/AppIcon';
 import { cn } from '@/lib/utils';
 import { useAppCategory } from '@/hooks/use-categories';
 

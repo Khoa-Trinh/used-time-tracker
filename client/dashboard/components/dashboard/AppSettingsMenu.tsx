@@ -1,10 +1,10 @@
 import { memo, useCallback } from 'react';
 import { MoreHorizontal } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { StatItem } from '../utils/dashboard-utils';
+import { StatItem } from '../../utils/dashboard-utils';
 import { useCategoryMutations } from '@/hooks/use-categories';
-import AutoCategorizeMenuItem from './settings-menu/AutoCategorizeMenuItem';
-import CategorySubMenu from './settings-menu/CategorySubMenu';
+import AutoCategorizeMenuItem from '../settings-menu/AutoCategorizeMenuItem';
+import CategorySubMenu from '../settings-menu/CategorySubMenu';
 
 interface AppSettingsMenuProps {
     app: StatItem;

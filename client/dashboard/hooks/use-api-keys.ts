@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { client } from '@/lib/api-client';
 import { authClient } from '@/lib/auth-client';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 
 export interface ApiKey {
     id: string;
@@ -51,8 +52,14 @@ export function useApiKeys() {
             }
             return data;
         },
-        onSuccess: (data) => {
+        onSuccess: () => {
+            toast.success('API Key created successfully');
             queryClient.invalidateQueries({ queryKey: ['api-keys'] });
+        },
+        onError: (error: any) => {
+            const status = error?.status ? ` [${error.status}]` : '';
+            console.error('Failed to create API key:', error);
+            toast.error(`Failed to create API key${status}`);
         }
     });
 
@@ -70,7 +77,13 @@ export function useApiKeys() {
             return true;
         },
         onSuccess: () => {
+            toast.success('API Key revoked');
             queryClient.invalidateQueries({ queryKey: ['api-keys'] });
+        },
+        onError: (error: any) => {
+            const status = error?.status ? ` [${error.status}]` : '';
+            console.error('Failed to revoke API key:', error);
+            toast.error(`Failed to revoke API key${status}`);
         }
     });
 
