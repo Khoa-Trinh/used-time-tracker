@@ -1,9 +1,9 @@
 
+import { AppError } from '@/lib/utils/error';
 import { db } from '../../db';
 import { apps } from '../../db/schema';
 import { eq } from 'drizzle-orm';
 // import { AIService } from '../../services/ai';
-import { AppError } from '../../utils/error';
 
 interface UpdateCategoryParams {
     appId: string;

@@ -17,5 +17,16 @@ export const SessionModel = {
         endTime: t.Union([t.String(), t.Date()]),
         timeZone: t.String(),
         url: t.Optional(t.String())
+    }),
+    logSessionResponse: t.Object({
+        success: t.Boolean(),
+        filtered: t.Boolean(),
+        durationAdded: t.Number()
+    }),
+    errorResponse: t.Object({
+        success: t.Boolean(),
+        error: t.String(),
+        code: t.Optional(t.String()),
+        details: t.Optional(t.Any())
     })
 };

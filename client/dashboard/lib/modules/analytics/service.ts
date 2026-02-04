@@ -84,7 +84,7 @@ export abstract class AnalyticsService {
         type AppMetadata = {
             appId: string;
             appName: string;
-            category: string;
+            category: 'productive' | 'distracting' | 'neutral' | 'uncategorized';
             autoSuggested: boolean;
             platforms: string[];
         };
@@ -111,7 +111,7 @@ export abstract class AnalyticsService {
 
                 for (const usage of activity.appUsages) {
                     const app = usage.app as any;
-                    const categoryValue = app.category || 'uncategorized';
+                    const categoryValue = (app.category as AppMetadata['category']) || 'uncategorized';
                     const appId = app.id;
 
                     // Collect App Metadata

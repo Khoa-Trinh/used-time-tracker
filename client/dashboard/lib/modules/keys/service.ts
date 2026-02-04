@@ -1,7 +1,7 @@
+import { AppError } from '@/lib/utils/error';
 import { db } from '../../db';
 import { apiKeys } from '../../db/schema';
 import { eq, desc } from 'drizzle-orm';
-import { AppError } from '../../utils/error';
 
 export abstract class KeysService {
     static async getKeys(userId: string) {
@@ -18,7 +18,7 @@ export abstract class KeysService {
 
     static async createKey(userId: string, label: string) {
         // Generate a random key (simple implementation for now, or use crypto)
-        const key = `ak_${crypto.randomUUID().replace(/-/g, '')}`;
+        const key = `sk_${crypto.randomUUID().replace(/-/g, '')}`;
 
         await db.insert(apiKeys).values({
             userId,
@@ -42,5 +42,17 @@ export abstract class KeysService {
 
         await db.delete(apiKeys).where(eq(apiKeys.id, keyId));
         return { success: true };
+    }
+
+    static async verifyKey(key: string) {
+        const [apiKey] = await db.select().from(apiKeys).where(eq(apiKeys.key, key));
+
+        if (!apiKey) {
+            throw new AppError('Key not found', 404);
+        }
+
+        await db.update(apiKeys).set({ lastUsedAt: new Date() }).where(eq(apiKeys.id, apiKey.id));
+
+        return apiKey.userId;
     }
 }

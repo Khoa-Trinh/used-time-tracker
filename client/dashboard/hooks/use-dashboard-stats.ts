@@ -2,11 +2,15 @@
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { client } from '@/lib/api-client';
-import { StatItem, StatsResponse, ApiStatsResponse } from '../utils/dashboard-utils';
+import { mergeApps, mergeAppStats, mergeHourlyData, shouldClearCache } from '@/utils/stats-merge';
+import { StatItem, StatsResponse } from '@/utils/dashboard-utils';
+import { useRouter } from 'next/navigation';
+import { authClient } from '@/lib/auth-client';
 
 export function useDashboardStats() {
     const timeZone = typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'UTC';
     const queryClient = useQueryClient();
+    const router = useRouter();
     const queryKey = ['dashboard-stats', 'today', timeZone];
 
     const query = useQuery({
@@ -19,7 +23,6 @@ export function useDashboardStats() {
 
             // Check if we need to clear cache (new day)
             let since = null;
-            const { shouldClearCache, mergeHourlyData, mergeAppStats, mergeApps } = await import('../utils/stats-merge');
 
             const lastFetch = cachedData?._lastFetch || null;
 
@@ -41,11 +44,17 @@ export function useDashboardStats() {
                 }
             });
 
-            if (error) throw error;
+            if (error) {
+                if (error.status === 401) {
+                    await authClient.signOut();
+                    router.push('/login');
+                }
+                throw error;
+            }
             if (!data || !data.success || !data.data) throw new Error('Invalid data response');
 
             // Hydrate normalized data to full objects
-            const apiData = data.data as unknown as ApiStatsResponse['data'];
+            const apiData = data.data;
 
             // Merge new apps with cached apps
             const apps = mergeApps(cachedApps, apiData.apps);
@@ -53,7 +62,7 @@ export function useDashboardStats() {
             const hydratedHourly: Record<number, StatItem[]> = {};
             Object.keys(apiData.hourly).forEach(k => {
                 const hour = parseInt(k);
-                const items = apiData.hourly[hour] || [];
+                const items = apiData.hourly[k] || [];
                 hydratedHourly[hour] = items.map(item => {
                     const meta = apps[item.appId] || { appName: 'Unknown', category: 'uncategorized', platforms: [], autoSuggested: false };
                     // Calculate totalTimeMs from timelines
@@ -104,11 +113,9 @@ export function useDashboardStats() {
 
             return result;
         },
-        // Refetch every minute to keep data fresh
         refetchInterval: 60 * 1000,
         retry: 1,
-        // Important: Keep previous data while fetching to avoid flicker
-        placeholderData: (previousData: any) => previousData,
+        placeholderData: (previousData: StatsResponse['data'] | undefined) => previousData,
     });
 
     const fallbackStats: StatsResponse['data'] = {
@@ -116,7 +123,6 @@ export function useDashboardStats() {
         hourly: {},
         daily: []
     };
-
 
     return {
         ...query,

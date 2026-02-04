@@ -1,5 +1,7 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
+import { authClient } from '@/lib/auth-client';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { client } from '@/lib/api-client';
 import { toast } from 'sonner';
@@ -8,6 +10,7 @@ import { useDashboardStats } from '@/hooks/use-dashboard-stats';
 
 export function useCategoryMutations() {
     const queryClient = useQueryClient();
+    const router = useRouter();
     const timeZone = typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'UTC';
     const queryKey = ['dashboard-stats', 'today', timeZone];
 
@@ -18,17 +21,19 @@ export function useCategoryMutations() {
                 autoSuggested
             });
 
-            if (error) throw error;
+            if (error) {
+                if (error.status === 401) {
+                    await authClient.signOut();
+                    router.push('/login');
+                }
+                throw error;
+            }
             return { appId, category, autoSuggested };
         },
         onMutate: async ({ appId, category, autoSuggested }) => {
-            // Cancel any outgoing refetches (so they don't overwrite our optimistic update)
             await queryClient.cancelQueries({ queryKey });
-
-            // Snapshot the previous value
             const previousStats = queryClient.getQueryData<StatsResponse['data']>(queryKey);
 
-            // Optimistically update to the new value
             if (previousStats && previousStats.apps) {
                 const newApps = {
                     ...previousStats.apps,
@@ -42,9 +47,6 @@ export function useCategoryMutations() {
                 queryClient.setQueryData(queryKey, {
                     ...previousStats,
                     apps: newApps,
-                    // Optimized: We ONLY update the apps map.
-                    // UI components must derive category from stats.apps[appId] or useAppCategory hook.
-                    // This avoids O(N) iteration over all daily/hourly items.
                 });
             }
 
@@ -66,7 +68,14 @@ export function useCategoryMutations() {
     const suggestCategoryMutation = useMutation({
         mutationFn: async ({ appId, appName }: Pick<StatItem, 'appId' | 'appName'>) => {
             const { data, error } = await client.api.apps.suggest.post({ appName });
-            if (error) throw error;
+
+            if (error) {
+                if (error.status === 401) {
+                    await authClient.signOut();
+                    router.push('/login');
+                }
+                throw error;
+            }
 
             if (!data?.success || !data.data?.category) {
                 throw new Error('No suggestion returned');
@@ -91,8 +100,6 @@ export function useCategoryMutations() {
 }
 
 export const useAppCategory = (appId: string, initialCategory: StatItem['category'], initialAutoSuggested?: boolean): Pick<StatItem, 'category' | 'autoSuggested'> => {
-    // We access the stats cache directly to get the live category
-    // This hook will trigger re-renders when stats update
     const { stats } = useDashboardStats();
 
     if (stats?.apps && stats.apps[appId]) {

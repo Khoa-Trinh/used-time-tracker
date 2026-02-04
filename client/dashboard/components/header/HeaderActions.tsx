@@ -6,10 +6,11 @@ import { ModeToggle } from '@/components/ModeToggle';
 import { useRouter } from 'next/navigation';
 import { authClient } from '@/lib/auth-client';
 import { useDashboardStats } from '@/hooks/use-dashboard-stats';
-import { BrowserToggle } from './BrowserToggle';
+import { useQueryClient } from '@tanstack/react-query';
 
 const HeaderActions = memo(function HeaderActions() {
     const { refetch, isRefetching: isRefreshing } = useDashboardStats();
+    const queryClient = useQueryClient();
 
     const router = useRouter();
     const isHosted = process.env.NEXT_PUBLIC_AUTH_MODE === 'hosted';
@@ -20,16 +21,13 @@ const HeaderActions = memo(function HeaderActions() {
 
     const handleLogout = async () => {
         await authClient.signOut();
+        queryClient.clear();
         router.push('/login');
         router.refresh();
     };
 
     return (
         <div className="flex items-center gap-3">
-            <BrowserToggle />
-
-            <div className="h-6 w-px bg-border/50 mx-1" /> {/* Separator */}
-
             <div className="flex items-center gap-2">
                 <ModeToggle />
 

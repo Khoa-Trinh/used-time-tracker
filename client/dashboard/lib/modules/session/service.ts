@@ -1,10 +1,10 @@
 
+import { AppError } from '@/lib/utils/error';
 import { db } from '../../db';
 import { devices, dailyActivities, appUsages, usageTimelines, apps, urlPatterns } from '../../db/schema';
 import { eq, and, sql, desc } from 'drizzle-orm';
 // import { suggestCategory, matchUrlPattern } from '../../services/auto-categorize';
 // import { AIService } from '../../services/ai';
-import { AppError } from '../../utils/error';
 
 
 // Constants

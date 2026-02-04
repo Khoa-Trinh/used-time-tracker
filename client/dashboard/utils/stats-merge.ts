@@ -27,7 +27,7 @@ export const mergeHourlyData = (
         const incomingItems = incoming[key as any] || [];
         const existingItems = merged[hour] || [];
 
-        console.log(`[StatsMerge] Merging Hour ${hour}. Existing: ${existingItems.length}, Incoming: ${incomingItems.length}`);
+        // console.log(`[StatsMerge] Merging Hour ${hour}. Existing: ${existingItems.length}, Incoming: ${incomingItems.length}`);
 
         // Create a map of existing items by appId for quick lookup
         const itemMap = new Map();
