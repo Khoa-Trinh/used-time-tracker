@@ -3,6 +3,32 @@ import { TotalFocusCard } from '../summary/TotalFocusCard';
 import { TopAppCard } from '../summary/TopAppCard';
 import { ProductivityCard } from '../summary/ProductivityCard';
 import { useDashboardStats } from '@/hooks/use-dashboard-stats';
+import { motion } from 'framer-motion';
+
+const containerVariants = {
+    hidden: { opacity: 0 },
+    show: {
+        opacity: 1,
+        transition: {
+            staggerChildren: 0.1,
+            delayChildren: 0.1,
+        }
+    }
+};
+
+const itemVariants = {
+    hidden: { opacity: 0, y: 20, scale: 0.98 },
+    show: {
+        opacity: 1,
+        y: 0,
+        scale: 1,
+        transition: {
+            type: "spring",
+            stiffness: 100,
+            damping: 15
+        }
+    }
+} as const;
 
 const SummaryCards = memo(function SummaryCards() {
     const { stats, isPending: loading } = useDashboardStats();
@@ -38,13 +64,25 @@ const SummaryCards = memo(function SummaryCards() {
     }, [dailyStats, stats.hourly, appsMap]);
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <TotalFocusCard loading={loading} totalTimeMs={totalTimeMs} hourlyActivity={hourlyActivity} />
-            <TopAppCard loading={loading} topApp={topApp} totalTimeMs={totalTimeMs} />
-            <ProductivityCard loading={loading} productivityScore={productivityScore} productiveMs={productiveMs} />
-        </div>
+        <motion.div
+            variants={containerVariants}
+            initial="hidden"
+            animate="show"
+            className="grid grid-cols-1 md:grid-cols-3 gap-6"
+        >
+            <motion.div variants={itemVariants}>
+                <TotalFocusCard loading={loading} totalTimeMs={totalTimeMs} hourlyActivity={hourlyActivity} />
+            </motion.div>
+            <motion.div variants={itemVariants}>
+                <TopAppCard loading={loading} topApp={topApp} totalTimeMs={totalTimeMs} />
+            </motion.div>
+            <motion.div variants={itemVariants}>
+                <ProductivityCard loading={loading} productivityScore={productivityScore} productiveMs={productiveMs} />
+            </motion.div>
+        </motion.div>
     );
 });
 
 export default SummaryCards;
+
 

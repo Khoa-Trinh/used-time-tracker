@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useDashboardStore } from '@/store/dashboard-store';
 import { useShallow } from 'zustand/react/shallow';
 import { useDashboardStats } from '@/hooks/use-dashboard-stats';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const COLORS = {
     productive: '#10b981',
@@ -61,32 +62,8 @@ export default function ActivityProfile() {
         }
         return result;
     }, [hourlyData, hideBrowsers, appsMap]);
-    
-    if (loading) {
-        return (
-            <div className="bg-card/40 border border-border/50 rounded-3xl backdrop-blur-xl shadow-lg relative overflow-hidden flex flex-col h-full min-h-[400px]">
-                {/* Header Skeleton */}
-                <div className="flex items-center gap-3 p-8 pb-2 border-b border-border/5">
-                    <Skeleton className="w-10 h-10 rounded-xl bg-primary/10" />
-                    <div className="space-y-2">
-                        <Skeleton className="h-5 w-40 bg-primary/10" />
-                        <Skeleton className="h-3 w-24 bg-primary/5" />
-                    </div>
-                </div>
 
-                {/* Chart Skeleton */}
-                <div className="h-[300px] w-full p-4 pt-8 flex items-end justify-between px-8 gap-1">
-                    {Array.from({ length: 24 }).map((_, i) => (
-                        <Skeleton
-                            key={i}
-                            className="w-full rounded-t-sm bg-primary/5"
-                            style={{ height: `${((i * 13) % 70) + 20}%` }}
-                        />
-                    ))}
-                </div>
-            </div>
-        );
-    }
+
 
     const CustomTooltip = ({ active, payload, label }: any) => {
         if (active && payload && payload.length) {
@@ -129,7 +106,7 @@ export default function ActivityProfile() {
                     y={0}
                     dy={16}
                     textAnchor="middle"
-                    className={`text-[10px] ${isSelected ? 'fill-primary font-bold' : 'fill-muted-foreground'}`}
+                    className={`text-[10px] transition-all duration-300 ${isSelected ? 'fill-primary font-bold scale-110' : 'fill-muted-foreground'}`}
                 >
                     {payload.value.split(':')[0]}
                 </text>
@@ -138,52 +115,88 @@ export default function ActivityProfile() {
     };
 
     return (
-        <div className="bg-card/40 border border-border/50 rounded-3xl backdrop-blur-xl shadow-lg relative overflow-hidden flex flex-col h-full min-h-[400px]">
+        <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="bg-card/40 border border-border/50 rounded-3xl backdrop-blur-xl shadow-lg relative overflow-hidden flex flex-col h-full min-h-[400px]"
+        >
             {/* Subtle Gradient Overlay */}
             <div className="absolute inset-0 bg-linear-to-br from-primary/5 via-transparent to-accent/5 pointer-events-none" />
 
-            {/* Header */}
+            {/* Header - Always Rendered */}
             <div className="flex items-center gap-3 p-8 pb-2 relative z-10">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20 shadow-inner">
+                <motion.div
+                    whileHover={{ scale: 1.05 }}
+                    className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20 shadow-inner"
+                >
                     <BarChart3 className="w-5 h-5 text-primary" />
-                </div>
+                </motion.div>
                 <div>
                     <h2 className="text-lg font-bold text-foreground">Activity Profile</h2>
                     <p className="text-xs text-muted-foreground font-medium">24-hour breakdown</p>
                 </div>
             </div>
 
-            {/* Content */}
-            <div className="h-[300px] w-full p-4 pt-8 relative z-10">
-                <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                        data={data}
-                        margin={{ top: 10, right: 10, left: 0, bottom: 20 }}
-                        onClick={(data: any) => {
-                            if (data && data.activePayload && data.activePayload.length > 0) {
-                                const hour = data.activePayload[0].payload.hour;
-                                setSelectedHour(hour);
-                            }
-                        }}
-                        className="cursor-pointer"
-                    >
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" opacity={0.05} />
-                        <XAxis
-                            dataKey="label"
-                            tick={<CustomXAxisTick />}
-                            axisLine={false}
-                            tickLine={false}
-                            interval={1}
-                        />
-                        <Tooltip content={<CustomTooltip />} cursor={{ fill: 'currentColor', opacity: 0.05 }} />
+            {/* Content Area */}
+            <div className="flex-1 relative z-10 px-4 pb-4 overflow-hidden">
+                <AnimatePresence mode="wait">
+                    {loading ? (
+                        <motion.div
+                            key="skeleton"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="h-[300px] w-full p-4 pt-8 flex items-end justify-between px-8 gap-1"
+                        >
+                            {Array.from({ length: 24 }).map((_, i) => (
+                                <Skeleton
+                                    key={i}
+                                    className="w-full rounded-t-sm bg-primary/5"
+                                    style={{ height: `${((i * 13) % 70) + 20}%` }}
+                                />
+                            ))}
+                        </motion.div>
+                    ) : (
+                        <motion.div
+                            key="content"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            className="h-[300px] w-full p-4 pt-8"
+                        >
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart
+                                    data={data}
+                                    margin={{ top: 10, right: 10, left: 0, bottom: 20 }}
+                                    onClick={(data: any) => {
+                                        if (data && data.activePayload && data.activePayload.length > 0) {
+                                            const hour = data.activePayload[0].payload.hour;
+                                            setSelectedHour(hour);
+                                        }
+                                    }}
+                                    className="cursor-pointer"
+                                >
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" opacity={0.05} />
+                                    <XAxis
+                                        dataKey="label"
+                                        tick={<CustomXAxisTick />}
+                                        axisLine={false}
+                                        tickLine={false}
+                                        interval={1}
+                                    />
+                                    <Tooltip content={<CustomTooltip />} cursor={{ fill: 'currentColor', opacity: 0.05 }} />
 
-                        <Bar dataKey="uncategorized" stackId="a" fill={COLORS.uncategorized} radius={[0, 0, 0, 0]} />
-                        <Bar dataKey="neutral" stackId="a" fill={COLORS.neutral} radius={[0, 0, 0, 0]} />
-                        <Bar dataKey="distracting" stackId="a" fill={COLORS.distracting} radius={[0, 0, 0, 0]} />
-                        <Bar dataKey="productive" stackId="a" fill={COLORS.productive} radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                </ResponsiveContainer>
+                                    <Bar dataKey="uncategorized" stackId="a" fill={COLORS.uncategorized} radius={[0, 0, 0, 0]} isAnimationActive={true} animationDuration={1500} />
+                                    <Bar dataKey="neutral" stackId="a" fill={COLORS.neutral} radius={[0, 0, 0, 0]} isAnimationActive={true} animationDuration={1500} />
+                                    <Bar dataKey="distracting" stackId="a" fill={COLORS.distracting} radius={[0, 0, 0, 0]} isAnimationActive={true} animationDuration={1500} />
+                                    <Bar dataKey="productive" stackId="a" fill={COLORS.productive} radius={[4, 4, 0, 0]} isAnimationActive={true} animationDuration={1500} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
             </div>
-        </div>
+        </motion.div>
     );
 }
+

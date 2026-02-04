@@ -9,8 +9,45 @@ import { Button } from "@/components/ui/button"
 export function ModeToggle() {
     const { theme, setTheme } = useTheme()
 
-    const toggleTheme = () => {
-        setTheme(theme === "dark" ? "light" : "dark")
+    const toggleTheme = (event: React.MouseEvent) => {
+        const isAppearanceTransition =
+            // @ts-ignore
+            document.startViewTransition &&
+            !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+        if (!isAppearanceTransition) {
+            setTheme(theme === "dark" ? "light" : "dark")
+            return
+        }
+
+        const x = event.clientX
+        const y = event.clientY
+        const endRadius = Math.hypot(
+            Math.max(x, window.innerWidth - x),
+            Math.max(y, window.innerHeight - y)
+        )
+
+        // @ts-ignore
+        const transition = document.startViewTransition(async () => {
+            setTheme(theme === "dark" ? "light" : "dark")
+        })
+
+        transition.ready.then(() => {
+            const clipPath = [
+                `circle(0px at ${x}px ${y}px)`,
+                `circle(${endRadius}px at ${x}px ${y}px)`,
+            ]
+            document.documentElement.animate(
+                {
+                    clipPath: theme === 'dark' ? [...clipPath].reverse() : clipPath,
+                },
+                {
+                    duration: 500,
+                    easing: 'ease-in-out',
+                    pseudoElement: theme === 'dark' ? '::view-transition-old(root)' : '::view-transition-new(root)',
+                }
+            )
+        })
     }
 
     return (

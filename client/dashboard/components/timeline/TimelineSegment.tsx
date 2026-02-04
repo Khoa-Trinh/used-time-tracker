@@ -1,5 +1,6 @@
 import { memo, useMemo } from 'react';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { motion } from 'framer-motion';
 
 interface TimelineSegmentProps {
     t: { startTime: string; endTime: string };
@@ -45,9 +46,21 @@ const TimelineSegment = memo(function TimelineSegment({ t, category, selectedHou
             'from-blue-500 to-cyan-400 shadow-blue-500/20';
 
     const triggerElement = useMemo(() => (
-        <div
-            className={`absolute h-3 rounded-full bg-gradient-to-r ${barColor} hover:brightness-125 transition-all cursor-crosshair shadow-sm border border-border/50`}
-            style={{ left: `${left}%`, width: `${visibleWidth}%` }}
+        <motion.div
+            initial={{ scaleX: 0, opacity: 0 }}
+            animate={{ scaleX: 1, opacity: 1 }}
+            transition={{
+                type: "spring",
+                stiffness: 100,
+                damping: 20,
+                delay: 0.1
+            }}
+            style={{
+                left: `${left}%`,
+                width: `${visibleWidth}%`,
+                originX: 0
+            }}
+            className={`absolute h-3 rounded-full bg-linear-to-r ${barColor} hover:brightness-125 transition-all cursor-crosshair shadow-sm border border-border/50`}
         />
     ), [barColor, left, visibleWidth]);
 
@@ -69,3 +82,4 @@ const TimelineSegment = memo(function TimelineSegment({ t, category, selectedHou
 });
 
 export default TimelineSegment;
+

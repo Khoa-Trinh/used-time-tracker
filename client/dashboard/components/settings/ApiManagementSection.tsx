@@ -4,6 +4,7 @@ import { CreateKeyForm } from './CreateKeyForm';
 import { NewKeyDisplay } from './NewKeyDisplay';
 import { KeysList } from './KeysList';
 import { Skeleton } from '@/components/ui/skeleton';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export function ApiManagementSection() {
     const { keys, isLoading, createKey, isCreating, deleteKey, isDeleting } = useApiKeys();
@@ -41,27 +42,53 @@ export function ApiManagementSection() {
     );
 
     return (
-        <>
+        <div className="space-y-6">
             <CreateKeyForm onCreate={handleCreate} isCreating={isCreating} />
 
-            {newKey && (
-                <NewKeyDisplay
-                    apiKey={newKey}
-                    onDismiss={() => setNewKey(null)}
-                />
-            )}
-
-            <div className="space-y-3">
-                {!hasHydrated || isLoading ? (
-                    renderSkeletons()
-                ) : (
-                    <KeysList
-                        keys={keys}
-                        onDelete={deleteKey}
-                        isDeleting={isDeleting}
-                    />
+            <AnimatePresence mode="popLayout">
+                {newKey && (
+                    <motion.div
+                        key="new-key"
+                        initial={{ opacity: 0, height: 0, marginBottom: 0 }}
+                        animate={{ opacity: 1, height: 'auto', marginBottom: 12 }}
+                        exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+                    >
+                        <NewKeyDisplay
+                            apiKey={newKey}
+                            onDismiss={() => setNewKey(null)}
+                        />
+                    </motion.div>
                 )}
+            </AnimatePresence>
+
+            <div className="space-y-3 min-h-[200px] relative">
+                <AnimatePresence mode="wait">
+                    {!hasHydrated || isLoading ? (
+                        <motion.div
+                            key="skeletons"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="space-y-3"
+                        >
+                            {renderSkeletons()}
+                        </motion.div>
+                    ) : (
+                        <motion.div
+                            key="list"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            className="w-full"
+                        >
+                            <KeysList
+                                keys={keys}
+                                onDelete={deleteKey}
+                                isDeleting={isDeleting}
+                            />
+                        </motion.div>
+                    )}
+                </AnimatePresence>
             </div>
-        </>
+        </div>
     );
 }
