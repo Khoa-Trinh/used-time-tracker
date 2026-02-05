@@ -18,7 +18,8 @@ import { getUser } from '@/lib/utils/auth-check';
 const app = new Elysia({ prefix: '/api' })
     .use(cors({
         origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : true,
-        credentials: true
+        credentials: true,
+        allowedHeaders: ['Content-Type', 'Authorization']
     }))
     .mapResponse(({ request, set, responseValue }) => {
         if (!responseValue || typeof responseValue !== 'object' && typeof responseValue !== 'string') return;
@@ -220,5 +221,6 @@ export const PUT = app.fetch
 export const DELETE = app.fetch
 export const PATCH = app.fetch
 export const HEAD = app.fetch
+export const OPTIONS = app.fetch
 
 export type App = typeof app

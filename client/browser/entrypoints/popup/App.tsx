@@ -1,124 +1,70 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { browser } from 'wxt/browser';
+import { useSettings } from './hooks/use-settings';
+import { useLogs } from './hooks/use-logs';
+import { Header } from './components/Header';
+import { SettingsForm } from './components/SettingsForm';
+import { ConsoleLogs } from './components/ConsoleLogs';
 
 function App() {
-    const [serverUrl, setServerUrl] = useState('http://localhost:3000/api/log-session');
-    const [apiKey, setApiKey] = useState('');
-    const [dashboardUrl, setDashboardUrl] = useState('http://localhost:3000');
-    const [status, setStatus] = useState<{ msg: string, type: 'success' | 'error' } | null>(null);
-    const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+    const {
+        serverUrl,
+        setServerUrl,
+        apiKey,
+        setApiKey,
+        theme,
+        toggleTheme,
+        status,
+        saveSettings,
+        getDashboardUrl
+    } = useSettings();
 
-    useEffect(() => {
-        // Load settings and theme
-        browser.storage.sync.get({
-            serverUrl: 'http://localhost:3000/api/log-session',
-            apiKey: '',
-            dashboardUrl: 'http://localhost:3000',
-            theme: 'dark'
-        })
-            .then((items: any) => {
-                setServerUrl(items.serverUrl);
-                setApiKey(items.apiKey);
-                setDashboardUrl(items.dashboardUrl);
-                setTheme(items.theme || 'dark');
-                document.documentElement.setAttribute('data-theme', items.theme || 'dark');
-            });
-    }, []);
-
-    const toggleTheme = () => {
-        const newTheme = theme === 'dark' ? 'light' : 'dark';
-        setTheme(newTheme);
-        document.documentElement.setAttribute('data-theme', newTheme);
-        browser.storage.sync.set({ theme: newTheme });
-    };
-
-    const saveOptions = () => {
-        if (!serverUrl) {
-            setStatus({ msg: 'Server URL is required', type: 'error' });
-            return;
-        }
-
-        browser.storage.sync.set({ serverUrl, apiKey, dashboardUrl }).then(() => {
-            setStatus({ msg: 'Settings saved successfully!', type: 'success' });
-            setTimeout(() => setStatus(null), 3000);
-        }).catch(() => {
-            setStatus({ msg: 'Failed to save settings', type: 'error' });
-        });
-    };
+    const { logs, clearLogs } = useLogs();
 
     const openDashboard = () => {
-        browser.tabs.create({ url: dashboardUrl });
+        browser.tabs.create({ url: getDashboardUrl() });
     };
 
     return (
         <div className="container">
-            <header className="header">
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <h1 className="title">Time Tracker</h1>
-                    <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: apiKey ? '#10b981' : '#71717a' }} title={apiKey ? "Configured" : "Not Configured"} />
+            <Header
+                apiKey={apiKey}
+                theme={theme}
+                onToggleTheme={toggleTheme}
+            />
+
+            <SettingsForm
+                serverUrl={serverUrl}
+                onServerUrlChange={setServerUrl}
+                apiKey={apiKey}
+                onApiKeyChange={setApiKey}
+            />
+
+            <ConsoleLogs
+                logs={logs}
+                onClear={clearLogs}
+            />
+
+            {status && (
+                <div className={`status-toast ${status.type === 'success' ? 'toast-success' : 'toast-error'}`}>
+                    {status.msg}
                 </div>
-                <button className="theme-toggle" onClick={toggleTheme} title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}>
-                    {theme === 'dark' ? (
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5" /><path d="M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4" /></svg>
-                    ) : (
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></svg>
-                    )}
-                </button>
-            </header>
+            )}
 
-            <div className="form-group">
-                <label className="label" htmlFor="serverUrl">Server Endpoint</label>
-                <input
-                    id="serverUrl"
-                    className="input"
-                    type="text"
-                    value={serverUrl}
-                    onChange={(e) => setServerUrl(e.target.value)}
-                    placeholder="http://localhost:3000/api/log-session"
-                />
-                <span className="helper-text">Endpoint ending in /api/log-session</span>
-            </div>
-
-            <div className="form-group">
-                <label className="label" htmlFor="apiKey">API Key</label>
-                <input
-                    id="apiKey"
-                    className="input"
-                    type="password"
-                    value={apiKey}
-                    onChange={(e) => setApiKey(e.target.value)}
-                    placeholder="sk_..."
-                />
-                <span className="helper-text">Required for Hosted Mode</span>
-            </div>
-
-            <div className="form-group">
-                <label className="label" htmlFor="dashboardUrl">Dashboard URL</label>
-                <input
-                    id="dashboardUrl"
-                    className="input"
-                    type="text"
-                    value={dashboardUrl}
-                    onChange={(e) => setDashboardUrl(e.target.value)}
-                    placeholder="http://localhost:3000"
-                />
-                <span className="helper-text">Base URL for the dashboard</span>
-            </div>
-
-            <div className={`status ${status?.type === 'error' ? 'error' : ''}`}>
-                {status?.msg}
-            </div>
-
-            <div style={{ display: 'flex', gap: '10px', marginTop: 'auto' }}>
+            <div className="footer-actions">
                 <button
-                    className="button button-secondary"
-                    style={{ flex: 1 }}
+                    className="btn btn-secondary"
                     onClick={openDashboard}
                 >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" /><path d="M3 9h18" /><path d="M9 21V9" /></svg>
                     Dashboard
                 </button>
-                <button className="button" style={{ flex: 1 }} onClick={saveOptions}>
-                    Save Changes
+                <button
+                    className="btn btn-primary"
+                    onClick={saveSettings}
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" /><polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" /></svg>
+                    Save
                 </button>
             </div>
         </div>

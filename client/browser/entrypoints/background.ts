@@ -19,8 +19,12 @@ export default defineBackground(() => {
   // Listen for config changes
   browser.storage.onChanged.addListener((changes: any, areaName: string) => {
     if (areaName === 'sync') {
-      if (changes.serverUrl) configCache!.serverUrl = changes.serverUrl.newValue;
-      if (changes.apiKey) configCache!.apiKey = changes.apiKey.newValue;
+      if (!configCache) {
+        // If cache isn't ready yet, it'll be populated by the initial get
+        return;
+      }
+      if (changes.serverUrl) configCache.serverUrl = changes.serverUrl.newValue;
+      if (changes.apiKey) configCache.apiKey = changes.apiKey.newValue;
     }
   });
 
@@ -62,7 +66,16 @@ export default defineBackground(() => {
 
 
 
-  let logLock = Promise.resolve();
+  const addLog = async (log: { type: 'success' | 'error', message: string, detail?: any }) => {
+    const { logs = [] } = await browser.storage.local.get('logs');
+    const newLog = {
+      timestamp: new Date().toISOString(),
+      ...log
+    };
+    // Keep last 30 logs to avoid ballooning storage
+    const updatedLogs = [newLog, ...logs as any].slice(0, 30);
+    await browser.storage.local.set({ logs: updatedLogs });
+  };
 
   const _performLogSession = async (shouldReset: boolean = true) => {
     // fast read from cache if available
@@ -122,11 +135,32 @@ export default defineBackground(() => {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
 
-      fetch(serverUrl, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(payload)
-      }).catch(err => console.error('Failed to log session:', err));
+      try {
+        const response = await fetch(serverUrl, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(payload)
+        });
+
+        if (response.ok) {
+          await addLog({
+            type: 'success',
+            message: `Logged session for ${appName} (${Math.round(duration / 1000)}s)`
+          });
+        } else {
+          const errorText = await response.text().catch(() => 'No error detail');
+          await addLog({
+            type: 'error',
+            message: `Server Error (${response.status}): ${errorText.slice(0, 100)}`
+          });
+        }
+      } catch (err: any) {
+        console.error('Failed to log session:', err);
+        await addLog({
+          type: 'error',
+          message: `Network Error: ${err.message || 'Unknown network error'}`
+        });
+      }
     }
   };
 
