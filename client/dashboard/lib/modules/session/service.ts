@@ -88,10 +88,12 @@ export abstract class SessionService {
             timelineId: usageTimelines.id,
             appUsageId: appUsages.id,
             startTime: usageTimelines.startTime,
-            endTime: usageTimelines.endTime
+            endTime: usageTimelines.endTime,
+            appName: apps.name
         })
             .from(usageTimelines)
             .innerJoin(appUsages, eq(usageTimelines.appUsageId, appUsages.id))
+            .innerJoin(apps, eq(appUsages.appId, apps.id))
             .innerJoin(dailyActivities, eq(appUsages.dailyActivityId, dailyActivities.id))
             .innerJoin(devices, eq(dailyActivities.deviceId, devices.id))
             .where(and(
@@ -102,7 +104,8 @@ export abstract class SessionService {
             ));
 
         if (overlaps.length > 0) {
-            console.log(`[PRUNE] Found ${overlaps.length} overlapping web segments. Pruning...`);
+            console.log(`\n[PRUNE] ✂️  Pruning Web timelines due to overlapping Windows app session`);
+            console.log(`      Incoming: ${start.toLocaleTimeString()} - ${end.toLocaleTimeString()}`);
 
             for (const row of overlaps) {
                 const webStart = new Date(row.startTime);
@@ -115,7 +118,14 @@ export abstract class SessionService {
 
                 if (overlapDuration <= 0) continue;
 
-                console.log(`   - Pruning ${overlapDuration}ms from Web Timeline ${row.timelineId}`);
+                console.log(`      ---`);
+                console.log(`      Old Timeline: [${row.appName}] ${webStart.toLocaleTimeString()} - ${webEnd.toLocaleTimeString()}`);
+                console.log(`      Filtered Out: ${overlapStart.toLocaleTimeString()} - ${overlapEnd.toLocaleTimeString()} (${overlapDuration}ms)`);
+
+                const remnants = [];
+                if (webStart < overlapStart) remnants.push(`${webStart.toLocaleTimeString()} - ${overlapStart.toLocaleTimeString()}`);
+                if (webEnd > overlapEnd) remnants.push(`${overlapEnd.toLocaleTimeString()} - ${webEnd.toLocaleTimeString()}`);
+                console.log(`      Sections Left: ${remnants.length > 0 ? remnants.join(', ') : 'None (Fully Deleted)'}`);
 
                 // 1. Reduce Total Time
                 await tx.update(appUsages)
@@ -142,10 +152,14 @@ export abstract class SessionService {
                     });
                 }
             }
+            console.log(`[PRUNE] Done.\n`);
         }
     }
 
     private static async filterIngestion(tx: any, userId: string, start: Date, end: Date) {
+        console.log(`\n[FILTER] 🔍 Filtering incoming Web session against Windows apps`);
+        console.log(`      Incoming Web: ${start.toLocaleTimeString()} - ${end.toLocaleTimeString()}`);
+
         const blockers = await tx.select({
             appName: apps.name,
             startTime: usageTimelines.startTime,
@@ -167,8 +181,8 @@ export abstract class SessionService {
         let segmentsToInsert = [{ start, end }];
 
         if (validBlockers.length > 0) {
-            console.log(`[FILTER] Found ${validBlockers.length} blocking window sessions. Calculating validity...`);
             for (const blocker of validBlockers) {
+                console.log(`      Blocking App: [${blocker.appName}] ${new Date(blocker.startTime).toLocaleTimeString()} - ${new Date(blocker.endTime).toLocaleTimeString()}`);
                 segmentsToInsert = this.subtractSegments(
                     segmentsToInsert,
                     new Date(blocker.startTime),
@@ -178,11 +192,17 @@ export abstract class SessionService {
         }
 
         if (segmentsToInsert.length === 0) {
-            console.log(`[FILTER] Web session fully blocked.`);
+            console.log(`      Filtered Out: Entire session`);
+            console.log(`      Sections Left: None`);
             return { filtered: true, segments: [], totalDuration: 0 };
         }
 
         const totalDuration = segmentsToInsert.reduce((acc, seg) => acc + (seg.end.getTime() - seg.start.getTime()), 0);
+
+        console.log(`      Sections Left: ${segmentsToInsert.map(s => `${s.start.toLocaleTimeString()} - ${s.end.toLocaleTimeString()}`).join(', ')}`);
+        console.log(`      Final Duration: ${totalDuration}ms`);
+        console.log(`[FILTER] Done.\n`);
+
         return { filtered: false, segments: segmentsToInsert, totalDuration };
     }
 
@@ -199,11 +219,13 @@ export abstract class SessionService {
                 platform: devicePlatform,
                 userId: userId
             }).returning();
+            console.log(`[UPSERT] Created new device: ${deviceId} (${devicePlatform})`);
         } else if (!device.userId) {
             [device] = await tx.update(devices)
                 .set({ userId: userId })
                 .where(eq(devices.id, device.id))
                 .returning();
+            console.log(`[UPSERT] Linked existing device ${deviceId} to user ${userId}`);
         } else if (device.userId !== userId) {
             throw new AppError('Device belongs to another user', 403);
         }
@@ -219,37 +241,27 @@ export abstract class SessionService {
                 deviceId: device.id,
                 date: dateStr
             }).returning();
+            console.log(`[UPSERT] Created new daily activity for ${dateStr}`);
         }
         if (!daily) throw new AppError('Failed to ensure daily activity', 500);
 
         // 3. Upsert App (with Auto-cat)
         let [app] = await tx.select().from(apps).where(and(eq(apps.name, appName), sql`1=1`)).limit(1);
 
-        // If app doesn't exist OR it is uncategorized/auto-suggested, we might want to refresh the category
-        // But for now, let's just ensure it has a category if it's new
         if (!app) {
-            // Use simple default instead of AI
             let finalCategory = 'uncategorized';
             let autoSuggested = false;
 
-            // TODO: Implement local simple pattern matching if needed
-            // For now, default to uncategorized as requested
-
-            // Insert new app using try-catch to handle unique constraints safely across drivers
             try {
                 [app] = await tx.insert(apps).values({
                     name: appName,
                     category: finalCategory,
                     autoSuggested
                 }).returning();
+                console.log(`[UPSERT] Created new app entry: ${appName}`);
             } catch (e: any) {
-                // Check for unique constraint violation
                 if (e.code === '23505' || (e.message && e.message.includes('unique constraint'))) {
-                    // It already exists, fetch it
                     [app] = await tx.select().from(apps).where(eq(apps.name, appName)).limit(1);
-
-                    // Optional: Update category if it was uncategorized and we have a strong suggestion?
-                    // For now, respect existing entry to match plan.
                 } else {
                     throw e;
                 }
@@ -268,6 +280,7 @@ export abstract class SessionService {
                 appId: app.id,
                 totalTimeMs: 0
             }).returning();
+            console.log(`[UPSERT] Created new usage record for ${appName} on ${dateStr}`);
         }
         if (!usage) throw new AppError('Failed to ensure usage', 500);
 
