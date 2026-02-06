@@ -1,6 +1,6 @@
 import { memo, useEffect, useRef } from 'react';
 import { Clock, ChevronLeft, ChevronRight } from 'lucide-react';
-
+import { useDashboardStore } from '@/store/dashboard-store';
 
 interface HourSelectorProps {
     selectedHour: number;
@@ -8,19 +8,28 @@ interface HourSelectorProps {
 }
 
 const HourSelector = memo(function HourSelector({ selectedHour, onSelectHour }: HourSelectorProps) {
+    const timeZone = useDashboardStore(state => state.timeZone);
     const containerRef = useRef<HTMLDivElement>(null);
     const hasInitialized = useRef(false);
 
     // Initial scroll and selection
     useEffect(() => {
         if (!hasInitialized.current) {
-            const currentHour = new Date().getHours();
+            // Get current hour in the specific timezone
+            const now = new Date();
+            const hourStr = now.toLocaleString('en-US', {
+                hour: 'numeric',
+                hour12: false,
+                timeZone: timeZone
+            });
+            const currentHour = parseInt(hourStr) % 24;
+
             if (currentHour !== selectedHour) {
                 onSelectHour(currentHour);
             }
             hasInitialized.current = true;
         }
-    }, [onSelectHour, selectedHour]);
+    }, [onSelectHour, selectedHour, timeZone]);
 
     // Auto-scroll to selected hour
     useEffect(() => {

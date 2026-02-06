@@ -7,6 +7,8 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::time::{Duration, Instant};
 
+// --- Models & Types ---
+
 #[derive(Serialize, Deserialize, Default, Clone)]
 struct Config {
     server_url: String,
@@ -43,6 +45,128 @@ impl Theme {
     }
 }
 
+#[derive(Clone, Copy)]
+enum StatusType {
+    Info,
+    Success,
+    Error,
+}
+
+// --- Styles & Constants ---
+
+struct AppStyle {
+    bg_fill: egui::Color32,
+    card_bg: egui::Color32,
+    card_stroke: egui::Color32,
+    text_primary: egui::Color32,
+    text_secondary: egui::Color32,
+    accent_color: egui::Color32,
+    accent_gradient_start: egui::Color32,
+    accent_gradient_end: egui::Color32,
+    input_bg: egui::Color32,
+    input_border: egui::Color32,
+    input_text: egui::Color32,
+    input_hint: egui::Color32,
+}
+
+impl AppStyle {
+    fn from_theme(theme: Theme) -> Self {
+        match theme {
+            Theme::Dark => Self {
+                bg_fill: egui::Color32::from_rgb(8, 8, 10),
+                card_bg: egui::Color32::from_rgba_premultiplied(20, 20, 25, 200), // Semi-transparent
+                card_stroke: egui::Color32::from_rgba_premultiplied(255, 255, 255, 20),
+                text_primary: egui::Color32::from_rgb(255, 255, 255),
+                text_secondary: egui::Color32::from_rgb(161, 161, 170),
+                accent_color: egui::Color32::from_rgb(99, 102, 241), // Indigo 500
+                accent_gradient_start: egui::Color32::from_rgb(99, 102, 241),
+                accent_gradient_end: egui::Color32::from_rgb(168, 85, 247), // Purple 500
+                input_bg: egui::Color32::from_rgba_premultiplied(30, 30, 35, 180),
+                input_border: egui::Color32::from_rgba_premultiplied(255, 255, 255, 15),
+                input_text: egui::Color32::from_rgb(228, 228, 231),
+                input_hint: egui::Color32::from_rgb(82, 82, 91),
+            },
+            Theme::Light => Self {
+                bg_fill: egui::Color32::from_rgb(245, 245, 250),
+                card_bg: egui::Color32::from_rgba_premultiplied(255, 255, 255, 220),
+                card_stroke: egui::Color32::from_rgba_premultiplied(0, 0, 0, 15),
+                text_primary: egui::Color32::from_rgb(15, 23, 42),
+                text_secondary: egui::Color32::from_rgb(71, 85, 105),
+                accent_color: egui::Color32::from_rgb(79, 70, 229), // Indigo 600
+                accent_gradient_start: egui::Color32::from_rgb(79, 70, 229),
+                accent_gradient_end: egui::Color32::from_rgb(147, 51, 234), // Purple 600
+                input_bg: egui::Color32::from_rgba_premultiplied(240, 240, 245, 200),
+                input_border: egui::Color32::from_rgba_premultiplied(0, 0, 0, 10),
+                input_text: egui::Color32::from_rgb(15, 23, 42),
+                input_hint: egui::Color32::from_rgb(148, 163, 184),
+            },
+        }
+    }
+}
+
+// --- UI Components ---
+
+fn modern_input(ui: &mut egui::Ui, label: &str, value: &mut String, hint: &str, password: bool, style: &AppStyle) -> bool {
+    ui.vertical(|ui| {
+        ui.label(egui::RichText::new(label).size(13.0).strong().color(style.text_primary));
+        ui.add_space(6.0);
+        
+        let mut changed = false;
+        egui::Frame::none()
+            .fill(style.input_bg)
+            .rounding(10.0)
+            .stroke(egui::Stroke::new(1.0, style.input_border))
+            .inner_margin(egui::Margin::symmetric(14.0, 12.0))
+            .show(ui, |ui| {
+                ui.set_width(ui.available_width());
+                let response = ui.add(
+                    egui::TextEdit::singleline(value)
+                        .hint_text(egui::RichText::new(hint).color(style.input_hint))
+                        .password(password)
+                        .frame(false)
+                        .desired_width(f32::INFINITY)
+                        .text_color(style.input_text),
+                );
+                if response.changed() {
+                    changed = true;
+                }
+            });
+        ui.add_space(18.0);
+        changed
+    }).inner
+}
+
+fn draw_backdrop(ui: &mut egui::Ui, theme: Theme) {
+    let rect = ui.max_rect();
+    let painter = ui.painter();
+    
+    // Base Background
+    painter.rect_filled(rect, 0.0, match theme {
+        Theme::Dark => egui::Color32::from_rgb(10, 10, 15),
+        Theme::Light => egui::Color32::from_rgb(240, 242, 248),
+    });
+
+    // Soft Blobs for Glass Effect
+    let (c1, c2, c3) = match theme {
+        Theme::Dark => (
+            egui::Color32::from_rgba_premultiplied(67, 56, 202, 30), // Indigo
+            egui::Color32::from_rgba_premultiplied(126, 34, 206, 25), // Purple
+            egui::Color32::from_rgba_premultiplied(29, 78, 216, 20), // Blue
+        ),
+        Theme::Light => (
+            egui::Color32::from_rgba_premultiplied(199, 210, 254, 80),
+            egui::Color32::from_rgba_premultiplied(233, 213, 255, 70),
+            egui::Color32::from_rgba_premultiplied(191, 219, 254, 60),
+        ),
+    };
+
+    painter.circle_filled(rect.left_top() + egui::vec2(50.0, 50.0), 180.0, c1);
+    painter.circle_filled(rect.right_bottom() + egui::vec2(-80.0, -100.0), 220.0, c2);
+    painter.circle_filled(rect.center() + egui::vec2(-100.0, 150.0), 150.0, c3);
+}
+
+// --- Application Core ---
+
 struct SetupApp {
     config: Config,
     config_path: PathBuf,
@@ -53,19 +177,10 @@ struct SetupApp {
     current_theme: Theme,
 }
 
-#[derive(Clone, Copy)]
-enum StatusType {
-    Info,
-    Success,
-    Error,
-}
-
 impl SetupApp {
     fn new(cc: &eframe::CreationContext) -> Self {
         let exe_path = std::env::current_exe().expect("Failed to get current executable path");
-        let exe_dir = exe_path
-            .parent()
-            .expect("Failed to get executable directory");
+        let exe_dir = exe_path.parent().expect("Failed to get executable directory");
         let config_path = exe_dir.join("config.json");
 
         let config: Config = match fs::read_to_string(&config_path) {
@@ -79,15 +194,11 @@ impl SetupApp {
 
         let current_theme = Theme::from_str(&config.theme);
 
-        // --- Custom Fonts (Segoe UI) ---
+        // Custom Fonts
         let mut fonts = egui::FontDefinitions::default();
         if let Ok(font_data) = fs::read("C:\\Windows\\Fonts\\segoeui.ttf") {
-            fonts
-                .font_data
-                .insert("segoe_ui".to_owned(), egui::FontData::from_owned(font_data));
-            if let Some(family) = fonts.families.get_mut(&egui::FontFamily::Proportional) {
-                family.insert(0, "segoe_ui".to_owned());
-            }
+            fonts.font_data.insert("segoe".to_owned(), egui::FontData::from_owned(font_data));
+            fonts.families.get_mut(&egui::FontFamily::Proportional).unwrap().insert(0, "segoe".to_owned());
         }
         cc.egui_ctx.set_fonts(fonts);
 
@@ -100,137 +211,68 @@ impl SetupApp {
             tracker_launched: false,
             current_theme,
         };
-        
-        app.apply_theme(&cc.egui_ctx);
+
+        app.apply_visuals(&cc.egui_ctx);
         app
     }
 
-    fn apply_theme(&self, ctx: &egui::Context) {
-        let visuals = match self.current_theme {
-            Theme::Dark => {
-                let mut v = egui::Visuals::dark();
-                v.window_rounding = egui::Rounding::same(12.0);
-                v.widgets.noninteractive.bg_fill = egui::Color32::from_rgb(24, 24, 27); // Zinc 900
-                v.widgets.noninteractive.fg_stroke = egui::Stroke::new(1.0, egui::Color32::from_rgb(228, 228, 231)); // Zinc 200
-                v.selection.bg_fill = egui::Color32::from_rgb(37, 99, 235); // Blue 600
-                v
-            }
-            Theme::Light => {
-                let mut v = egui::Visuals::light();
-                v.window_rounding = egui::Rounding::same(12.0);
-                v.widgets.noninteractive.bg_fill = egui::Color32::from_rgb(255, 255, 255); // White
-                v.widgets.noninteractive.fg_stroke = egui::Stroke::new(1.0, egui::Color32::from_rgb(24, 24, 27)); // Zinc 900
-                v.selection.bg_fill = egui::Color32::from_rgb(59, 130, 246); // Blue 500
-                v
-            }
+    fn apply_visuals(&self, ctx: &egui::Context) {
+        let mut visuals = match self.current_theme {
+            Theme::Dark => egui::Visuals::dark(),
+            Theme::Light => egui::Visuals::light(),
         };
+        visuals.window_rounding = egui::Rounding::same(20.0);
+        visuals.widgets.noninteractive.bg_stroke = egui::Stroke::new(1.0, egui::Color32::from_rgba_premultiplied(255, 255, 255, 10));
         ctx.set_visuals(visuals);
     }
-    
+
     fn toggle_theme(&mut self, ctx: &egui::Context) {
         self.current_theme = match self.current_theme {
             Theme::Light => Theme::Dark,
             Theme::Dark => Theme::Light,
         };
         self.config.theme = self.current_theme.to_str().to_string();
-        self.apply_theme(ctx);
+        self.apply_visuals(ctx);
+        ctx.request_repaint();
     }
 
     fn save(&mut self) {
         if self.config.server_url.trim().is_empty() {
-            self.status_message = Some("Please enter a Server URL.".to_string());
+            self.status_message = Some("Endpoint cannot be empty".to_string());
             self.status_type = StatusType::Error;
             return;
         }
 
-        if let Some(key) = &self.config.api_key {
-            if key.trim().is_empty() {
-                self.config.api_key = None;
-            }
-        }
-        
-        // Ensure theme is synced
         self.config.theme = self.current_theme.to_str().to_string();
-
-        let json = serde_json::to_string_pretty(&self.config).expect("Failed to serialize config");
+        let json = serde_json::to_string_pretty(&self.config).expect("Serialization failed");
+        
         if let Err(e) = fs::write(&self.config_path, json) {
-            self.status_message = Some(format!("Error saving: {}", e));
+            self.status_message = Some(format!("Error: {}", e));
             self.status_type = StatusType::Error;
         } else {
-            self.status_message = Some("Settings saved successfully.".to_string());
+            self.status_message = Some("Settings synced! Launching...".to_string());
             self.status_type = StatusType::Success;
             self.successfully_saved_at = Some(Instant::now());
-            self.tracker_launched = false; // Reset on new save
+            self.tracker_launched = false;
         }
     }
 
     fn launch_tracker(&self) {
-        let exe_path = std::env::current_exe().expect("Failed to get current executable path");
-        let exe_dir = exe_path
-            .parent()
-            .expect("Failed to get executable directory");
-        let tracker_exe = exe_dir.join("tracker.exe");
-
-        if tracker_exe.exists() {
-            let _ = Command::new(tracker_exe).spawn();
-        } else {
-             // eprintln!("tracker.exe not found!");
+        if let Ok(exe_path) = std::env::current_exe() {
+            if let Some(exe_dir) = exe_path.parent() {
+                let tracker_exe = exe_dir.join("tracker.exe");
+                if tracker_exe.exists() {
+                    let _ = Command::new(tracker_exe).spawn();
+                }
+            }
         }
     }
 }
 
-// Minimal Input Field
-fn minimal_input(ui: &mut egui::Ui, value: &mut String, hint: &str, password: bool, theme: Theme) -> bool {
-    let mut changed = false;
-    let (bg_color, border_color, text_color, placeholder_color) = match theme {
-        Theme::Dark => (
-            egui::Color32::from_rgb(39, 39, 42), // Zinc 800
-            egui::Color32::from_rgb(63, 63, 70), // Zinc 700
-            egui::Color32::WHITE,
-            egui::Color32::from_gray(120),
-        ),
-        Theme::Light => (
-             egui::Color32::from_rgb(244, 244, 245), // Zinc 100
-             egui::Color32::from_rgb(228, 228, 231), // Zinc 200
-             egui::Color32::BLACK,
-             egui::Color32::from_gray(140),
-        ),
-    };
-
-    egui::Frame::none()
-        .fill(bg_color)
-        .rounding(8.0)
-        .stroke(egui::Stroke::new(1.0, border_color))
-        .inner_margin(12.0)
-        .show(ui, |ui| {
-            ui.set_width(ui.available_width());
-            let response = ui.add(
-                egui::TextEdit::singleline(value)
-                    .hint_text(egui::RichText::new(hint).color(placeholder_color))
-                    .password(password)
-                    .frame(false)
-                    .desired_width(f32::INFINITY)
-                    .text_color(text_color),
-            );
-            if response.changed() {
-                changed = true;
-            }
-        });
-    changed
-}
-
 impl eframe::App for SetupApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // Handle Auto-Close / Countdown
         if let Some(saved_at) = self.successfully_saved_at {
-            let elapsed = saved_at.elapsed();
-            let remaining = if elapsed.as_secs() > 3 { // Faster autoclose
-                0
-            } else {
-                3 - elapsed.as_secs()
-            };
-
-            if elapsed >= Duration::from_secs(3) {
+            if saved_at.elapsed() >= Duration::from_secs(2) {
                 if !self.tracker_launched {
                     self.launch_tracker();
                     self.tracker_launched = true;
@@ -239,124 +281,129 @@ impl eframe::App for SetupApp {
                 return;
             }
             ctx.request_repaint();
-            self.status_message = Some(format!("Saved! Launching tracker in {}s...", remaining));
         }
-        
-        let (bg_fill, text_color, subtext_color) = match self.current_theme {
-            Theme::Dark => (
-                egui::Color32::from_rgb(9, 9, 11), // Zinc 950
-                egui::Color32::WHITE,
-                egui::Color32::from_rgb(161, 161, 170), // Zinc 400
-            ),
-            Theme::Light => (
-                egui::Color32::WHITE,
-                egui::Color32::BLACK,
-                egui::Color32::from_rgb(82, 82, 91), // Zinc 600
-            ),
-        };
 
-        egui::CentralPanel::default().frame(egui::Frame::none().fill(bg_fill)).show(ctx, |ui| {
-            // Padding
-            egui::Frame::none().inner_margin(32.0).show(ui, |ui| {
-                // Top Bar (Theme Toggle)
-                ui.horizontal(|ui| {
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        let icon = match self.current_theme {
-                            Theme::Light => "🌙",
-                            Theme::Dark => "☀",
-                        };
-                         if ui.add(egui::Button::new(icon).frame(false)).clicked() {
-                             self.toggle_theme(ctx);
-                         }
+        let style = AppStyle::from_theme(self.current_theme);
+
+        egui::CentralPanel::default()
+            .frame(egui::Frame::none())
+            .show(ctx, |ui| {
+                draw_backdrop(ui, self.current_theme);
+
+                egui::Frame::none().inner_margin(28.0).show(ui, |ui| {
+                    // --- Header ---
+                    ui.horizontal(|ui| {
+                        let (rect, _) = ui.allocate_at_least(egui::vec2(32.0, 32.0), egui::Sense::hover());
+                        let painter = ui.painter();
+                        painter.rect_filled(rect, 8.0, style.accent_color);
+                        painter.text(
+                            rect.center(),
+                            egui::Align2::CENTER_CENTER,
+                            "T",
+                            egui::FontId::proportional(18.0),
+                            egui::Color32::WHITE,
+                        );
+                        
+                        ui.add_space(8.0);
+                        ui.label(egui::RichText::new("Tick").size(22.0).strong().color(style.text_primary));
+
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            let icon = if self.current_theme == Theme::Light { "🌙" } else { "☀" };
+                            
+                            let (rect, response) = ui.allocate_at_least(egui::vec2(32.0, 32.0), egui::Sense::click());
+                            if response.hovered() {
+                                ui.painter().circle_filled(
+                                    rect.center(),
+                                    16.0,
+                                    egui::Color32::from_rgba_premultiplied(128, 128, 128, 30),
+                                );
+                            }
+                            
+                            ui.painter().text(
+                                rect.center(),
+                                egui::Align2::CENTER_CENTER,
+                                icon,
+                                egui::FontId::proportional(20.0),
+                                style.text_primary,
+                            );
+
+                            if response.clicked() {
+                                self.toggle_theme(ctx);
+                            }
+                        });
                     });
-                });
 
-                // Header
-                ui.vertical_centered(|ui| {
-                    ui.heading(
-                        egui::RichText::new("Tick Setup")
-                            .size(32.0)
-                            .strong()
-                            .color(text_color),
-                    );
-                    ui.add_space(8.0);
-                    ui.label(
-                        egui::RichText::new("Configure your local tracker client.")
-                            .size(14.0)
-                            .color(subtext_color),
-                    );
-                });
+                    ui.add_space(44.0);
 
-                ui.add_space(48.0);
-
-                // Form
-                ui.label(egui::RichText::new("Server URL").strong().color(text_color));
-                ui.add_space(6.0);
-                if minimal_input(ui, &mut self.config.server_url, "http://localhost:3000/api/log-session", false, self.current_theme) {
-                    self.status_message = None;
-                    self.successfully_saved_at = None;
-                }
-                
-                ui.add_space(24.0);
-                
-                ui.label(egui::RichText::new("API Key (Optional)").strong().color(text_color));
-                 ui.add_space(6.0);
-                let mut api_key_str = self.config.api_key.clone().unwrap_or_default();
-                if minimal_input(ui, &mut api_key_str, "sk_...", true, self.current_theme) {
-                    self.config.api_key = Some(api_key_str);
-                     self.status_message = None;
-                    self.successfully_saved_at = None;
-                }
-                
-                ui.add_space(48.0);
-
-                // Save Button
-                let btn_fill = match self.current_theme {
-                    Theme::Dark => egui::Color32::WHITE,
-                    Theme::Light => egui::Color32::BLACK,
-                };
-                let btn_text = match self.current_theme {
-                    Theme::Dark => egui::Color32::BLACK,
-                    Theme::Light => egui::Color32::WHITE,
-                };
-
-                let save_btn = ui.add_sized(
-                    [ui.available_width(), 48.0],
-                    egui::Button::new(
-                        egui::RichText::new("Save & Launch")
-                            .size(16.0)
-                            .strong()
-                            .color(btn_text),
-                    )
-                    .fill(btn_fill)
-                    .rounding(12.0),
-                );
-
-                if save_btn.clicked() {
-                    self.save();
-                }
-
-                 // Status Message
-                if let Some(msg) = &self.status_message {
-                    ui.add_space(20.0);
+                    // --- Hero Text ---
                     ui.vertical_centered(|ui| {
-                        let color = match self.status_type {
-                            StatusType::Success => egui::Color32::from_rgb(16, 185, 129), // Emerald 500
-                            StatusType::Error => egui::Color32::from_rgb(239, 68, 68),  // Red 500
-                            StatusType::Info => subtext_color,
-                        };
-                        ui.label(egui::RichText::new(msg).color(color));
+                        ui.heading(egui::RichText::new("Time Tracking").size(34.0).strong().color(style.text_primary));
+                        ui.add_space(6.0);
+                        ui.label(egui::RichText::new("Configure your workspace environment.").size(16.0).color(style.text_secondary));
                     });
-                }
+
+                    ui.add_space(36.0);
+
+                    // --- Glass Card ---
+                    egui::Frame::none()
+                        .fill(style.card_bg)
+                        .stroke(egui::Stroke::new(1.0, style.card_stroke))
+                        .rounding(24.0)
+                        .inner_margin(32.0)
+                        .show(ui, |ui| {
+                            if modern_input(ui, "Server Endpoint", &mut self.config.server_url, "https://api.tick.ai", false, &style) {
+                                self.status_message = None;
+                            }
+
+                            let mut api_key_str = self.config.api_key.clone().unwrap_or_default();
+                            if modern_input(ui, "Access token", &mut api_key_str, "••••••••••••••••", true, &style) {
+                                self.config.api_key = if api_key_str.is_empty() { None } else { Some(api_key_str) };
+                                self.status_message = None;
+                            }
+
+                            ui.add_space(12.0);
+
+                            // Gradient-like Button
+                            let (rect, response) = ui.allocate_at_least(egui::vec2(ui.available_width(), 48.0), egui::Sense::click());
+                            let painter = ui.painter();
+                            let bg_color = if response.hovered() { style.accent_gradient_end } else { style.accent_gradient_start };
+                            painter.rect_filled(rect, 12.0, bg_color);
+                            painter.text(
+                                rect.center(),
+                                egui::Align2::CENTER_CENTER,
+                                "Initialize Client",
+                                egui::FontId::proportional(16.0),
+                                egui::Color32::WHITE,
+                            );
+
+                            if response.clicked() {
+                                self.save();
+                            }
+                        });
+
+                    // --- Status Notification ---
+                    if let Some(msg) = &self.status_message {
+                        ui.add_space(28.0);
+                        let color = match self.status_type {
+                            StatusType::Success => egui::Color32::from_rgb(52, 211, 153),
+                            StatusType::Error => egui::Color32::from_rgb(248, 113, 113),
+                            StatusType::Info => style.text_secondary,
+                        };
+                        ui.vertical_centered(|ui| {
+                            ui.label(egui::RichText::new(format!("• {}", msg)).color(color).size(14.0).strong());
+                        });
+                    }
+                });
             });
-        });
     }
 }
+
+// --- Main Entry ---
 
 fn main() -> eframe::Result<()> {
     let options = eframe::NativeOptions {
         viewport: eframe::egui::ViewportBuilder::default()
-            .with_inner_size([480.0, 600.0])
+            .with_inner_size([480.0, 640.0])
             .with_resizable(false)
             .with_title("Tick Setup"),
         ..Default::default()

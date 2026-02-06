@@ -7,10 +7,11 @@ import { mergeApps, mergeAppStats, mergeHourlyData, shouldClearCache } from '@/u
 import { StatItem, StatsResponse } from '@/utils/dashboard-utils';
 import { useRouter } from 'next/navigation';
 import { authClient } from '@/lib/auth-client';
+import { useDashboardStore } from '@/store/dashboard-store';
 import { toast } from 'sonner';
 
 export function useDashboardStats() {
-    const timeZone = typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'UTC';
+    const timeZone = useDashboardStore(state => state.timeZone);
     const queryClient = useQueryClient();
     const router = useRouter();
     const queryKey = ['dashboard-stats', 'today', timeZone];
@@ -28,7 +29,7 @@ export function useDashboardStats() {
 
             const lastFetch = cachedData?._lastFetch || null;
 
-            if (lastFetch && !shouldClearCache(lastFetch)) {
+            if (lastFetch && !shouldClearCache(lastFetch, timeZone)) {
                 since = lastFetch;
             } else if (lastFetch) {
                 // console.log('[DashboardStats] Clearing cache due to date change');

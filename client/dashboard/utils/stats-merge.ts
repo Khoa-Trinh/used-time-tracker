@@ -3,11 +3,18 @@ import { StatItem, AppMetadata } from './dashboard-utils';
 /**
  * Checks if the cache should be cleared (e.g., if the day has changed)
  */
-export const shouldClearCache = (lastFetchTimestamp: string | null): boolean => {
+export const shouldClearCache = (lastFetchTimestamp: string | null, timezone?: string): boolean => {
     if (!lastFetchTimestamp) return false;
 
-    const lastDate = new Date(lastFetchTimestamp).toDateString();
-    const today = new Date().toDateString();
+    const options: Intl.DateTimeFormatOptions = {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        timeZone: timezone || Intl.DateTimeFormat().resolvedOptions().timeZone
+    };
+
+    const lastDate = new Date(lastFetchTimestamp).toLocaleString('en-US', options);
+    const today = new Date().toLocaleString('en-US', options);
 
     return lastDate !== today;
 };

@@ -1,0 +1,6 @@
+{
+  "dependencies": {},
+  "devDependencies": {
+    "innosetup-compiler": "^6.3.1"
+  }
+}
